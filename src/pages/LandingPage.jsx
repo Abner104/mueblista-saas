@@ -109,13 +109,7 @@ function Nav({ onLogin }) {
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: C.oak, boxShadow: `0 0 20px ${C.oak}40` }}>
-            <Hammer size={16} className="text-black" />
-          </div>
-          <span className="font-black text-lg tracking-tight" style={{ color: C.linen }}>WoodFlow</span>
-        </div>
+        <img src="/LogoCarpento.png" alt="Carpento" className="h-9 w-auto" />
 
         {/* Links desktop */}
         <nav className="hidden md:flex items-center gap-8 text-sm" style={{ color: C.sand }}>
@@ -1186,7 +1180,7 @@ function CtaSection({ onLogin }) {
         </h2>
 
         <p className="mt-6 text-base leading-relaxed" style={{ color: C.sand }}>
-          Más de 200 talleres ya gestionan su negocio con WoodFlow.
+          Más de 200 talleres ya gestionan su negocio con Carpento.
           Empezá hoy, sin tarjeta de crédito.
         </p>
 
@@ -1239,15 +1233,9 @@ function Footer({ onLogin }) {
       style={{ borderTop: `1px solid ${C.border}` }}
     >
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: C.oak }}>
-            <Hammer size={14} className="text-black" />
-          </div>
-          <span className="font-black" style={{ color: C.sand }}>WoodFlow</span>
-        </div>
+        <img src="/LogoCarpento.png" alt="Carpento" className="h-8 w-auto" />
         <p className="text-xs text-center" style={{ color: C.earth }}>
-          © 2025 WoodFlow · El SaaS para talleres de muebles · Argentina
+          © 2025 Carpento · El SaaS para talleres de muebles · Argentina
         </p>
         <button
           onClick={onLogin}
