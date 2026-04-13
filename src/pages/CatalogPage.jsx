@@ -888,7 +888,7 @@ function PublicNav({ onQuote, shopConfig }) {
           </div>
           <div>
             <p className="text-sm font-black leading-none" style={{ color: W.linen }}>
-              {shopConfig?.shop_name || 'WoodFlow'}
+              {shopConfig?.shop_name || 'Carpento'}
             </p>
             <p className="text-[9px] uppercase tracking-widest leading-none mt-0.5" style={{ color: W.earth }}>
               Carpintería artesanal
@@ -1508,8 +1508,7 @@ export default function CatalogPage() {
         style={{ borderTop: `1px solid ${W.border}`, color: W.earth }}
       >
         <div className="flex items-center justify-center gap-2 mb-2">
-          <Hammer size={13} style={{ color: W.oak }} />
-          <span className="font-bold" style={{ color: W.sand }}>WoodFlow</span>
+          <img src="/LogoCarpento.png" alt="Carpento" className="h-6 w-auto opacity-70" />
         </div>
         <p>Carpintería artesanal a medida · Buenos Aires, Argentina</p>
       </footer>
