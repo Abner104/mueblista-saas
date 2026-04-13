@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabaseClient';
 
-// Emails autorizados como super-admin (hardcoded + tabla DB)
+// Emails autorizados como super-admin
+// Agregá acá tu email para acceso garantizado
 const SUPER_ADMIN_EMAILS = [
-  // Agregá tu email acá como fallback local
+  // 'tu@email.com',
 ];
 
 export const useSuperAdminStore = create((set, get) => ({
@@ -22,16 +23,21 @@ export const useSuperAdminStore = create((set, get) => ({
       return true;
     }
 
-    // Chequeo en DB via RPC (service_role lo puede leer)
-    const { data, error } = await supabase
-      .from('super_admin_users')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // Chequeo en DB — el usuario solo puede leer su propia fila
+    try {
+      const { data, error } = await supabase
+        .from('super_admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    const is = !error && !!data;
-    set({ isSuperAdmin: is });
-    return is;
+      const is = !error && !!data;
+      set({ isSuperAdmin: is });
+      return is;
+    } catch {
+      set({ isSuperAdmin: false });
+      return false;
+    }
   },
 
   async loadMetrics() {
