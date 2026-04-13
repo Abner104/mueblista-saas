@@ -1,69 +1,27 @@
 /**
  * BillingPage — /app/billing
  * Estado del plan, días de trial, botón de upgrade a Pro con MercadoPago.
+ * Los planes se cargan dinámicamente desde la tabla plan_config.
  */
 
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Crown, Zap, Check, Clock, AlertTriangle,
+  Crown, Check, Clock, AlertTriangle,
   CreditCard, ExternalLink, RefreshCw, Shield,
-  Package, Users, Scissors, HardHat, FileText,
 } from 'lucide-react';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
 
-const PRECIO_PRO = 12000; // ARS por mes
-
-const PLANES = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: '$0',
-    period: 'para siempre',
-    color: '#71717a',
-    features: [
-      { icon: Package,  label: 'Hasta 10 productos en el catálogo' },
-      { icon: Users,    label: 'Hasta 20 clientes' },
-      { icon: FileText, label: 'Cotizaciones ilimitadas' },
-      { icon: Zap,      label: 'Catálogo público online' },
-    ],
-    locked: [
-      'Optimizador de cortes',
-      'Gestión de equipo (Maestros/Vendedores)',
-      'Productos ilimitados',
-      'Clientes ilimitados',
-    ],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: `$${PRECIO_PRO.toLocaleString('es-AR')}`,
-    period: 'por mes',
-    color: '#c8923a',
-    highlight: true,
-    features: [
-      { icon: Package,  label: 'Productos ilimitados' },
-      { icon: Users,    label: 'Clientes ilimitados' },
-      { icon: Scissors, label: 'Optimizador de cortes CNC' },
-      { icon: HardHat,  label: 'Gestión de equipo con roles' },
-      { icon: FileText, label: 'PDF profesional de cotizaciones' },
-      { icon: Crown,    label: 'Soporte prioritario' },
-    ],
-    locked: [],
-  },
-];
-
-function FeatureRow({ icon: Icon, label, locked = false }) {
+function FeatureRow({ label, locked = false }) {
   return (
     <div className={`flex items-center gap-2.5 text-sm ${locked ? 'opacity-40' : ''}`}>
       {locked
         ? <div className="w-4 h-4 rounded-full border border-zinc-700 flex items-center justify-center shrink-0" />
         : <Check size={14} className="text-amber-400 shrink-0" />
       }
-      <Icon size={13} className={locked ? 'text-zinc-600' : 'text-zinc-400'} />
       <span className={locked ? 'line-through text-zinc-600' : 'text-zinc-300'}>{label}</span>
     </div>
   );
@@ -102,10 +60,12 @@ export default function BillingPage() {
   const { user } = useAuthStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
-  const { plan, status, isPro, isTrialing, trialEndsAt, trialDaysLeft, load } = useSubscriptionStore();
+  const { plan, isPro, isTrialing, trialEndsAt, trialDaysLeft, load } = useSubscriptionStore();
   const [loadingMP, setLoadingMP] = useState(false);
   const [error, setError] = useState('');
   const [mpUrl, setMpUrl] = useState(null);
+  const [planes, setPlanes] = useState([]);
+  const [pricePro, setPricePro] = useState(12000);
 
   const tk = isDark ? {
     bg:     'bg-zinc-950',
@@ -123,19 +83,35 @@ export default function BillingPage() {
     if (user?.id) load(user.id);
   }, [user?.id]);
 
+  useEffect(() => {
+    async function fetchPlanes() {
+      const { data } = await supabase
+        .from('plan_config')
+        .select('*')
+        .in('plan_id', ['free', 'pro'])
+        .order('price', { ascending: true });
+
+      if (data?.length) {
+        setPlanes(data);
+        const pro = data.find(p => p.plan_id === 'pro');
+        if (pro) setPricePro(pro.price);
+      }
+    }
+    fetchPlanes();
+  }, []);
+
   async function handleUpgrade() {
     if (!user) return;
     setLoadingMP(true);
     setError('');
 
     try {
-      // Llama a la Edge Function de Supabase que crea la preferencia en MP
       const { data, error: fnError } = await supabase.functions.invoke('mp-create-preference', {
         body: {
-          owner_id:   user.id,
+          owner_id:    user.id,
           owner_email: user.email,
-          plan:       'pro',
-          price:      PRECIO_PRO,
+          plan:        'pro',
+          price:       pricePro,
         },
       });
 
@@ -235,20 +211,23 @@ export default function BillingPage() {
 
       {/* Comparación de planes */}
       <div className="grid md:grid-cols-2 gap-4">
-        {PLANES.map((p) => {
-          const isCurrentPlan = p.id === plan || (p.id === 'pro' && isPro && !isTrialing);
+        {planes.map((p, i) => {
+          const isCurrentPlan = p.plan_id === plan || (p.plan_id === 'pro' && isPro && !isTrialing);
+          const isHighlight = p.plan_id === 'pro';
+          const priceLabel = p.price === 0 ? '$0' : `$${Number(p.price).toLocaleString('es-AR')}`;
           return (
             <motion.div
-              key={p.id}
+              key={p.plan_id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.07 }}
               className={`rounded-2xl border p-4 md:p-6 relative overflow-hidden ${
-                p.highlight
+                isHighlight
                   ? 'border-amber-500/30 bg-gradient-to-br from-zinc-900 to-zinc-950'
                   : tk.card
               }`}
             >
-              {p.highlight && (
+              {isHighlight && (
                 <div className="absolute top-0 left-0 right-0 h-[2px]"
                   style={{ background: 'linear-gradient(90deg, transparent, #c8923a, transparent)' }} />
               )}
@@ -263,23 +242,17 @@ export default function BillingPage() {
                 {p.name}
               </p>
               <div className="flex items-baseline gap-1 mb-5">
-                <span className="text-3xl font-black text-white">{p.price}</span>
+                <span className="text-3xl font-black text-white">{priceLabel}</span>
                 <span className={`text-sm ${tk.sub}`}>/{p.period}</span>
               </div>
 
               <div className="space-y-2.5 mb-5">
-                {p.features.map(f => (
-                  <FeatureRow key={f.label} {...f} />
-                ))}
-                {p.locked.map(l => (
-                  <div key={l} className="flex items-center gap-2.5 text-sm opacity-35">
-                    <div className="w-4 h-4 rounded-full border border-zinc-700 shrink-0" />
-                    <span className="line-through text-zinc-600">{l}</span>
-                  </div>
+                {(p.features || []).map(f => (
+                  <FeatureRow key={f.label} label={f.label} />
                 ))}
               </div>
 
-              {p.highlight && (!isPro || isTrialing) && (
+              {isHighlight && (!isPro || isTrialing) && (
                 <button
                   onClick={handleUpgrade}
                   disabled={loadingMP}
