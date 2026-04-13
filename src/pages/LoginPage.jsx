@@ -3,6 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useSuperAdminStore } from '../store/superAdminStore';
+
+async function redirectAfterLogin(user, checkSuperAdmin, navigate) {
+  const isSuperAdmin = await checkSuperAdmin(user);
+  navigate(isSuperAdmin ? '/super' : '/app');
+}
 
 // Convierte el nombre del taller a slug válido
 function toSlug(str) {
@@ -18,6 +24,7 @@ function toSlug(str) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { checkSuperAdmin } = useSuperAdminStore();
   const [isRegister, setIsRegister] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -94,7 +101,7 @@ export default function LoginPage() {
           setIsRegister(false);
           return;
         }
-        navigate('/app');
+        await redirectAfterLogin(data.user, checkSuperAdmin, navigate);
       }
 
       setLoading(false);
@@ -102,14 +109,14 @@ export default function LoginPage() {
     }
 
     // Login
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     });
 
     setLoading(false);
     if (loginError) { setError(loginError.message); return; }
-    navigate('/app');
+    await redirectAfterLogin(loginData.user, checkSuperAdmin, navigate);
   }
 
   return (
