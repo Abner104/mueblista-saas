@@ -255,10 +255,14 @@ function PlanEditor({ plan, onSave, onCancel }) {
       </div>
 
       {/* Campos básicos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
           <label className="block text-xs text-zinc-500 mb-1 uppercase tracking-wider">Nombre</label>
           <input value={form.name} onChange={e => setF('name', e.target.value)} className={inp} />
+        </div>
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1 uppercase tracking-wider">Precio ({form.currency})</label>
+          <input type="number" value={form.price} onChange={e => setF('price', Number(e.target.value))} className={inp} />
         </div>
         <div>
           <label className="block text-xs text-zinc-500 mb-1 uppercase tracking-wider">Período</label>
@@ -411,6 +415,7 @@ export default function SuperAdminPage() {
       .from('plan_config')
       .update({
         name:          form.name,
+        price:         form.price,
         period:        form.period,
         color:         form.color,
         max_products:  form.max_products,
