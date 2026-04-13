@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 // Emails autorizados como super-admin
 // Agregá acá tu email para acceso garantizado
 const SUPER_ADMIN_EMAILS = [
-  // 'tu@email.com',
+  'stkdevelopers643@gmail.com',
 ];
 
 export const useSuperAdminStore = create((set, get) => ({
