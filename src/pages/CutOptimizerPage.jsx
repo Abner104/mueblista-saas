@@ -113,7 +113,7 @@ function PieceRow({ piece, index, onChange, onDelete, isDark }) {
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 10 }}
-      className="grid grid-cols-[1fr_90px_90px_60px_36px] gap-2 items-center"
+      className="grid grid-cols-[1fr_70px_70px_50px_32px] md:grid-cols-[1fr_90px_90px_60px_36px] gap-2 items-center"
     >
       <input
         placeholder="Nombre de la pieza"
@@ -335,12 +335,12 @@ export default function CutOptimizerPage() {
     <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className={`text-3xl font-bold ${tk.text}`}>Optimizador de cortes</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Optimizador de cortes</h1>
           <p className={`${tk.sub} mt-1`}>Calculá cuántas planchas necesitás y cómo acomodar las piezas.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           <button
             onClick={downloadPDF}
             disabled={!result}
@@ -357,7 +357,7 @@ export default function CutOptimizerPage() {
         </div>
       </div>
 
-      <div className="grid xl:grid-cols-[400px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-6 items-start">
 
         {/* ── Panel izquierdo: configuración ── */}
         <div className="space-y-5">

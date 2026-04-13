@@ -132,7 +132,7 @@ export default function LoginPage() {
             Cotizaciones, inventario, órdenes de producción y tu catálogo público — todo en un solo lugar.
           </p>
 
-          <div className="mt-10 grid grid-cols-2 gap-4">
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               ['Catálogo público', 'Tus clientes ven y piden cotizaciones online'],
               ['PDF automático', 'Genera presupuestos profesionales en segundos'],
@@ -147,7 +147,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-xs text-zinc-700">© 2025 WoodFlow · Todos los derechos reservados</p>
+        <p className="text-xs text-zinc-700">© 2025 Carpento · Todos los derechos reservados</p>
       </div>
 
       {/* ── Formulario ── */}
@@ -165,9 +165,9 @@ export default function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
             onSubmit={handleSubmit}
-            className="rounded-3xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-xl p-8 shadow-2xl"
+            className="rounded-3xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-xl p-5 md:p-8 shadow-2xl"
           >
-            <h2 className="text-3xl font-bold">{isRegister ? 'Crear cuenta' : 'Ingresar'}</h2>
+            <h2 className="text-2xl md:text-3xl font-bold">{isRegister ? 'Crear cuenta' : 'Ingresar'}</h2>
             <p className="mt-2 text-zinc-400 text-sm">
               {isRegister ? 'Registrá tu taller y empezá a gestionar' : 'Accedé a tu panel de trabajo'}
             </p>

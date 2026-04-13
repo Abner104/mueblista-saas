@@ -149,7 +149,7 @@ function PhotoUploader({ photos, onChange, userId, label='Fotos', max=10 }) {
     <div>
       <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">{label} ({photos.length}/{max})</p>
       {photos.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
           {photos.map((url, i) => (
             <div key={url} className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-700">
               <img src={url} alt="" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLb(i)}/>
@@ -315,7 +315,7 @@ function ProductModal({ product, userId, onSave, onClose }) {
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           <PhotoUploader photos={form.photos} onChange={v => set('photos', v)} userId={userId} label="Fotos del producto"/>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nombre del mueble">
               <input className={INPUT_CLS} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ej: Placard 3 puertas"/>
             </Field>
@@ -325,7 +325,7 @@ function ProductModal({ product, userId, onSave, onClose }) {
               </select>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Precio">
               <input className={INPUT_CLS} value={form.price} onChange={e => set('price', e.target.value)} placeholder="Ej: 1.500.000 o Consultar"/>
             </Field>
@@ -333,7 +333,7 @@ function ProductModal({ product, userId, onSave, onClose }) {
               <input className={INPUT_CLS} value={form.time} onChange={e => set('time', e.target.value)} placeholder="Ej: 10 días hábiles"/>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Etiqueta (tag)">
               <input className={INPUT_CLS} value={form.tag} onChange={e => set('tag', e.target.value)} placeholder="Ej: Más pedido, Premium"/>
             </Field>
@@ -341,7 +341,7 @@ function ProductModal({ product, userId, onSave, onClose }) {
               <input className={INPUT_CLS} value={form.dims} onChange={e => set('dims', e.target.value)} placeholder="Ej: 2.40 × 2.00 m"/>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Material principal">
               <input className={INPUT_CLS} value={form.wood} onChange={e => set('wood', e.target.value)} placeholder="Ej: MDF enchapado roble"/>
             </Field>
@@ -600,7 +600,7 @@ export default function SalesRoomPage() {
               >
                 {activeTab === 'identidad' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Field label="Nombre del taller">
                         <FocusInput accent={accent} value={config.shop_name}
                           onChange={e => setField('shop_name', e.target.value)} placeholder="Mi Carpintería"/>
@@ -647,7 +647,7 @@ export default function SalesRoomPage() {
 
                 {activeTab === 'contacto' && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Field label="WhatsApp / Teléfono">
                         <FocusInput accent={accent} value={config.phone}
                           onChange={e => setField('phone', e.target.value)} placeholder="+54 9 11 0000-0000"/>

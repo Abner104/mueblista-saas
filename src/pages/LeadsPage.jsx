@@ -195,7 +195,7 @@ export default function LeadsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className={`text-3xl font-bold ${tk.text}`}>Consultas recibidas</h1>
+        <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Consultas recibidas</h1>
         <p className={`${tk.sub} mt-1`}>Pedidos que llegaron desde tu catálogo público.</p>
       </div>
 
@@ -250,7 +250,7 @@ export default function LeadsPage() {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ delay: i * 0.04 }}
                   onClick={() => setSelected(lead)}
-                  className={`group cursor-pointer rounded-2xl border transition-all p-4 flex items-center gap-4 ${tk.card}`}
+                  className={`group cursor-pointer rounded-2xl border transition-all p-3 md:p-4 flex items-center gap-2 md:gap-4 ${tk.card}`}
                 >
                   {/* Icono */}
                   <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
@@ -272,7 +272,7 @@ export default function LeadsPage() {
                   </span>
 
                   {/* Fecha */}
-                  <p className={`text-xs shrink-0 ${tk.sub}`}>
+                  <p className={`text-xs shrink-0 hidden sm:block ${tk.sub}`}>
                     {new Date(lead.created_at).toLocaleDateString('es-AR')}
                   </p>
                 </motion.div>

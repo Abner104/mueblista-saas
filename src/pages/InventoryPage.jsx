@@ -458,7 +458,7 @@ export default function InventoryPage() {
 
       {/* ── Búsqueda + filtros ── */}
       <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-52">
+        <div className="relative flex-1 min-w-0">
           <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${tk.sub}`} />
           <input
             value={search}
@@ -490,8 +490,9 @@ export default function InventoryPage() {
         </div>
       ) : (
         <div className={`rounded-3xl border ${tk.card} overflow-hidden`}>
+          <div className="overflow-x-auto">
           {/* Encabezado tabla */}
-          <div className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-3 text-xs uppercase tracking-wider ${tk.sub} border-b ${isDark ? 'border-zinc-800 bg-zinc-900/50' : 'border-stone-200 bg-stone-50'}`}>
+          <div className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-3 text-xs uppercase tracking-wider ${tk.sub} border-b ${isDark ? 'border-zinc-800 bg-zinc-900/50' : 'border-stone-200 bg-stone-50'} min-w-[480px]`}>
             <span>Material</span>
             <span className="text-right w-20">Costo</span>
             <span className="text-right w-24">Stock</span>
@@ -511,7 +512,7 @@ export default function InventoryPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-4 items-center border-b last:border-0 transition ${tk.row} ${isDark ? 'border-zinc-800/50' : 'border-stone-100'}`}
+                    className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-4 items-center border-b last:border-0 transition ${tk.row} ${isDark ? 'border-zinc-800/50' : 'border-stone-100'} min-w-[480px]`}
                   >
                     {/* Nombre + cat + badges */}
                     <div className="min-w-0">
@@ -575,6 +576,7 @@ export default function InventoryPage() {
                 );
               })}
             </AnimatePresence>
+          </div>
           </div>
         </div>
       )}

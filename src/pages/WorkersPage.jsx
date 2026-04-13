@@ -135,7 +135,7 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
           {/* Rol del sistema */}
           <div>
             <Label>Acceso al sistema</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {WORKER_ROLES.map(r => (
                 <button
                   key={r.value}
@@ -389,13 +389,13 @@ export default function WorkersPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className={`text-3xl font-bold ${tk.text}`}>Equipo de trabajo</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Equipo de trabajo</h1>
           <p className={`${tk.sub} mt-1`}>Maestros, vendedores y accesos al sistema.</p>
         </div>
         <button onClick={openNew}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-2.5 text-sm transition shadow-lg shadow-amber-500/20">
+          className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-2.5 text-sm transition shadow-lg shadow-amber-500/20 w-full sm:w-auto">
           <Plus size={18} /> Nuevo trabajador
         </button>
       </div>

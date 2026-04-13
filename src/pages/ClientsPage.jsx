@@ -63,14 +63,14 @@ export default function ClientsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className={`text-3xl font-bold ${tk.text}`}>Clientes</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Clientes</h1>
           <p className={`${tk.sub} mt-1`}>Base comercial de tu taller.</p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 shrink-0"
+          className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 shrink-0 w-full sm:w-auto"
         >
           <Plus size={18} /> Nuevo cliente
         </button>
@@ -137,7 +137,7 @@ export default function ClientsPage() {
           <p className="text-sm">No hay clientes todavía</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <AnimatePresence>
             {clients.map((c, i) => (
               <motion.div
@@ -156,7 +156,7 @@ export default function ClientsPage() {
                     </div>
                     <div>
                       <p className={`font-semibold ${tk.text}`}>{c.name}</p>
-                      {c.address && <p className={`text-xs ${tk.sub} truncate max-w-[160px]`}>{c.address}</p>}
+                      {c.address && <p className={`text-xs ${tk.sub} truncate`}>{c.address}</p>}
                     </div>
                   </div>
                   <button onClick={() => handleDelete(c.id)} className={`rounded-xl border px-2.5 py-1.5 text-xs transition shrink-0 ${tk.del}`}>

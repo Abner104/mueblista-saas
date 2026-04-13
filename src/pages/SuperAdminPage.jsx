@@ -130,9 +130,9 @@ export default function SuperAdminPage() {
 
       {/* Header */}
       <header className="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
               <Shield size={18} className="text-black" />
             </div>
             <div>
@@ -140,32 +140,32 @@ export default function SuperAdminPage() {
               <h1 className="text-sm font-black text-white leading-none">Super Admin</h1>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={loadMetrics}
               disabled={metricsLoading}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-400 hover:bg-zinc-800 transition disabled:opacity-50"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-400 hover:bg-zinc-800 transition disabled:opacity-50"
             >
               <RefreshCw size={13} className={metricsLoading ? 'animate-spin' : ''} />
-              Actualizar
+              <span className="hidden sm:inline">Actualizar</span>
             </button>
             <button
               onClick={() => navigate('/app')}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-400 hover:bg-zinc-800 transition"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-400 hover:bg-zinc-800 transition"
             >
-              <ExternalLink size={13} /> Ir al panel
+              <ExternalLink size={13} /> <span className="hidden sm:inline">Panel</span>
             </button>
             <button
               onClick={async () => { await logout(); navigate('/'); }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-red-400 hover:bg-red-500/10 transition"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-red-400 hover:bg-red-500/10 transition"
             >
-              <LogOut size={13} /> Salir
+              <LogOut size={13} /> <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8 space-y-8">
 
         {/* Métricas globales */}
         <div>

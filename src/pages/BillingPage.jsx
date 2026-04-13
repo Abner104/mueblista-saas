@@ -170,8 +170,8 @@ export default function BillingPage() {
       {isTrialing && daysLeft > 0 && <TrialBanner daysLeft={daysLeft} />}
 
       {/* Plan actual */}
-      <div className={`rounded-2xl border ${tk.card} p-6`}>
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className={`rounded-2xl border ${tk.card} p-4 md:p-6`}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className={`text-xs uppercase tracking-widest ${tk.sub} mb-1`}>Plan actual</p>
             <div className="flex items-center gap-3">
@@ -204,7 +204,7 @@ export default function BillingPage() {
               disabled={loadingMP}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm transition disabled:opacity-60"
+              className="flex items-center gap-2 px-4 md:px-6 py-3 rounded-xl font-black text-sm transition disabled:opacity-60 w-full sm:w-auto justify-center"
               style={{ background: '#c8923a', color: '#0f0d0b', boxShadow: '0 8px 24px #c8923a40' }}
             >
               {loadingMP
@@ -242,7 +242,7 @@ export default function BillingPage() {
               key={p.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl border p-6 relative overflow-hidden ${
+              className={`rounded-2xl border p-4 md:p-6 relative overflow-hidden ${
                 p.highlight
                   ? 'border-amber-500/30 bg-gradient-to-br from-zinc-900 to-zinc-950'
                   : tk.card

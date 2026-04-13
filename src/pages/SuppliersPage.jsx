@@ -58,14 +58,14 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className={`text-3xl font-bold ${tk.text}`}>Proveedores</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Proveedores</h1>
           <p className={`${tk.sub} mt-1`}>Contactos de materiales y herrajes.</p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 shrink-0"
+          className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 w-full sm:w-auto"
         >
           <Plus size={18} /> Nuevo proveedor
         </button>
@@ -129,7 +129,7 @@ export default function SuppliersPage() {
           <p className="text-sm">No hay proveedores todavía</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <AnimatePresence>
             {suppliers.map((s, i) => (
               <motion.div

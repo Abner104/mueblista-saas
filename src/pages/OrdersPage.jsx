@@ -291,13 +291,13 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className={`text-3xl font-bold ${tk.text}`}>Órdenes de producción</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Órdenes de producción</h1>
           <p className={`${tk.sub} mt-1`}>Seguimiento de ventas y estado de fabricación.</p>
         </div>
         <button onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 shrink-0">
+          className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 shrink-0 w-full sm:w-auto">
           <Plus size={18} /> Nueva orden
         </button>
       </div>
@@ -341,7 +341,7 @@ export default function OrdersPage() {
           </button>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <AnimatePresence>
             {filtered.map(sale => (
               <OrderCard key={sale.id} sale={sale} maestros={maestros} onUpdate={fetchAll} isDark={isDark} />

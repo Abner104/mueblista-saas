@@ -141,7 +141,7 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className={`rounded-3xl border bg-gradient-to-br ${tk.hero} p-7 overflow-hidden relative`}
+        className={`rounded-3xl border bg-gradient-to-br ${tk.hero} p-4 md:p-7 overflow-hidden relative`}
       >
         {/* Vetas decorativas */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ opacity: isDark ? 0.06 : 0.03 }}>
@@ -163,7 +163,7 @@ export default function DashboardPage() {
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
             <p className={`text-xs uppercase tracking-widest font-medium mb-2 ${tk.sub}`}>{hourGreet}</p>
-            <h1 className={`text-3xl font-black ${tk.text} leading-tight`}>
+            <h1 className={`text-2xl md:text-3xl font-black ${tk.text} leading-tight`}>
               {shopName || firstName}
             </h1>
             <p className={`mt-1.5 text-sm ${tk.sub}`}>
@@ -188,13 +188,13 @@ export default function DashboardPage() {
 
       {/* ── KPIs ── */}
       {loading ? (
-        <div className="grid md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className={`rounded-2xl border ${tk.card} h-28 animate-pulse`} />
           ))}
         </div>
       ) : (
-        <div className="grid md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {kpis.map(({ label, value, icon: Icon, to, color, bg, raw }, i) => (
             <motion.div
               key={label}
@@ -226,14 +226,14 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* ── Leads recientes ── */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.45 }}
-          className={`rounded-3xl border ${tk.card} p-6`}
+          className={`rounded-3xl border ${tk.card} p-4 md:p-6`}
         >
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
@@ -277,7 +277,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.38, duration: 0.45 }}
-          className={`rounded-3xl border ${tk.card} p-6`}
+          className={`rounded-3xl border ${tk.card} p-4 md:p-6`}
         >
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">

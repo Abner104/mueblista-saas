@@ -375,13 +375,13 @@ export default function QuotesPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className={`text-3xl font-bold ${tk.text}`}>Cotizaciones</h1>
+          <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Cotizaciones</h1>
           <p className={`mt-1 ${tk.sub}`}>Creá y gestioná presupuestos para tus clientes.</p>
         </div>
         <button onClick={()=>setShowForm(v=>!v)}
-          className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 shrink-0">
+          className="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-3 transition shadow-lg shadow-amber-500/20 w-full sm:w-auto">
           <Plus size={18}/> Nueva cotización
         </button>
       </div>
@@ -433,7 +433,7 @@ export default function QuotesPage() {
                 initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }}
                 exit={{ opacity:0, y:-10 }} transition={{ delay:i*0.04 }}
                 onClick={()=>setSelected(q)}
-                className={`group cursor-pointer rounded-2xl border transition-all p-4 flex items-center gap-4 ${tk.card}`}>
+                className={`group cursor-pointer rounded-2xl border transition-all p-3 md:p-4 flex items-center gap-2 md:gap-4 ${tk.card}`}>
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
                   <FileText size={18} className="text-amber-500"/>
                 </div>
@@ -448,7 +448,7 @@ export default function QuotesPage() {
                   <p className={`font-bold ${tk.text}`}>${Number(q.total).toLocaleString('es-AR')}</p>
                   <p className={`text-xs ${tk.sub}`}>{new Date(q.created_at).toLocaleDateString('es-AR')}</p>
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition shrink-0">
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition shrink-0 hidden sm:flex">
                   <button onClick={e=>{ e.stopPropagation(); generatePDF(q); }}
                     className={`p-2 rounded-xl hover:bg-amber-500/10 ${tk.sub} hover:text-amber-500 transition`}>
                     <Download size={15}/>
