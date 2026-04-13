@@ -33,7 +33,7 @@ create policy "plan_config_service_write" on public.plan_config
 -- Datos iniciales
 insert into public.plan_config (plan_id, name, price, currency, period, color, max_products, max_clients, can_optimizer, can_workers, features)
 values
-  ('free', 'Free', 0, 'ARS', 'para siempre', '#71717a', 10, 20, false, false,
+  ('free', 'Free', 0, 'CLP', 'para siempre', '#71717a', 10, 20, false, false,
    '[
      {"label": "Hasta 10 productos en el catálogo"},
      {"label": "Hasta 20 clientes"},
@@ -41,7 +41,7 @@ values
      {"label": "Catálogo público online"}
    ]'::jsonb
   ),
-  ('pro', 'Pro', 12000, 'ARS', 'por mes', '#c8923a', 999999, 999999, true, true,
+  ('pro', 'Pro', 9990, 'CLP', 'por mes', '#c8923a', 999999, 999999, true, true,
    '[
      {"label": "Productos ilimitados"},
      {"label": "Clientes ilimitados"},
@@ -51,7 +51,7 @@ values
      {"label": "Soporte prioritario"}
    ]'::jsonb
   ),
-  ('enterprise', 'Enterprise', 0, 'ARS', 'por mes', '#7c3aed', 999999, 999999, true, true,
+  ('enterprise', 'Enterprise', 0, 'CLP', 'por mes', '#7c3aed', 999999, 999999, true, true,
    '[
      {"label": "Todo lo del plan Pro"},
      {"label": "Onboarding personalizado"},

@@ -155,7 +155,7 @@ function ShopRow({ shop, onPlanChange, onDelete, onResetTrial, updatingPlan, i }
         <td className="px-4 py-3 text-center"><span className="text-zinc-300 text-sm font-medium">{shop.quotes_count ?? 0}</span></td>
         <td className="px-4 py-3">
           <p className="text-zinc-500 text-xs whitespace-nowrap">
-            {shop.created_at ? new Date(shop.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
+            {shop.created_at ? new Date(shop.created_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: '2-digit' }) : '—'}
           </p>
         </td>
         <td className="px-4 py-3 text-zinc-600">
@@ -633,7 +633,7 @@ export default function SuperAdminPage() {
                                   <span className="text-xs text-zinc-600 uppercase tracking-wider">{plan.plan_id}</span>
                                 </div>
                                 <p className="text-sm text-zinc-400 mt-0.5">
-                                  <span className="font-bold text-white text-lg">${Number(plan.price).toLocaleString('es-AR')}</span>
+                                  <span className="font-bold text-white text-lg">${Number(plan.price).toLocaleString('es-CL')}</span>
                                   <span className="text-zinc-600"> {plan.currency} / {plan.period}</span>
                                 </p>
                               </div>
@@ -687,7 +687,7 @@ export default function SuperAdminPage() {
                           {/* Última actualización */}
                           {plan.updated_at && (
                             <p className="text-[10px] text-zinc-700 mt-3">
-                              Actualizado: {new Date(plan.updated_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              Actualizado: {new Date(plan.updated_at).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           )}
                         </motion.div>

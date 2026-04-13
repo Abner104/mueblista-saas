@@ -170,7 +170,7 @@ export default function BillingPage() {
             </div>
             {trialEndsAt && isTrialing && (
               <p className={`text-xs ${tk.sub} mt-1`}>
-                Trial vence el {trialEndsAt.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                Trial vence el {trialEndsAt.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
               </p>
             )}
           </div>
@@ -214,7 +214,7 @@ export default function BillingPage() {
         {planes.map((p, i) => {
           const isCurrentPlan = p.plan_id === plan || (p.plan_id === 'pro' && isPro && !isTrialing);
           const isHighlight = p.plan_id === 'pro';
-          const priceLabel = p.price === 0 ? '$0' : `$${Number(p.price).toLocaleString('es-AR')}`;
+          const priceLabel = p.price === 0 ? '$0' : `$${Number(p.price).toLocaleString('es-CL')}`;
           return (
             <motion.div
               key={p.plan_id}
