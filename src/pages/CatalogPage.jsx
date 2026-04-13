@@ -1510,7 +1510,10 @@ export default function CatalogPage() {
         <div className="flex items-center justify-center gap-2 mb-2">
           <img src="/LogoCarpento.png" alt="Carpento" className="h-6 w-auto opacity-70" />
         </div>
-        <p>Carpintería artesanal a medida · Buenos Aires, Argentina</p>
+        <p>
+          {shopConfig?.tagline || 'Carpintería artesanal a medida'}
+          {shopConfig?.city ? ` · ${shopConfig.city}` : ''}
+        </p>
       </footer>
 
       {/* ── MODAL COTIZACIÓN ─────────────────────────── */}

@@ -19,7 +19,7 @@ const INPUT_CLS = 'w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-
 
 const DEFAULT_CONFIG = {
   shop_name: '', tagline: '', accent_color: '#c8923a',
-  phone: '', address: '', slug: '', logo_url: '',
+  phone: '', address: '', city: '', slug: '', logo_url: '',
   stats: [
     { label: 'Proyectos entregados', value: '120+' },
     { label: 'Clientes satisfechos', value: '98%'  },
@@ -650,11 +650,15 @@ export default function SalesRoomPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Field label="WhatsApp / Teléfono">
                         <FocusInput accent={accent} value={config.phone}
-                          onChange={e => setField('phone', e.target.value)} placeholder="+54 9 11 0000-0000"/>
+                          onChange={e => setField('phone', e.target.value)} placeholder="+56 9 1234 5678"/>
+                      </Field>
+                      <Field label="Ciudad / Ubicación">
+                        <FocusInput accent={accent} value={config.city}
+                          onChange={e => setField('city', e.target.value)} placeholder="Santiago, Chile"/>
                       </Field>
                       <Field label="Dirección del taller">
                         <FocusInput accent={accent} value={config.address}
-                          onChange={e => setField('address', e.target.value)} placeholder="Av. San Martín 1234"/>
+                          onChange={e => setField('address', e.target.value)} placeholder="Av. Providencia 1234"/>
                       </Field>
                     </div>
                     <Field label="URL del catálogo (slug)">
