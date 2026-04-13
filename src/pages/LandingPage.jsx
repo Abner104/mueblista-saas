@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -988,8 +989,19 @@ function PipelineSection() {
 
 function PreciosSection({ onLogin }) {
   const sectionRef = useRef(null);
+  const [dbPlans, setDbPlans] = useState(null); // null = cargando
 
   useEffect(() => {
+    supabase
+      .from('plan_config')
+      .select('plan_id, name, price, period, features')
+      .in('plan_id', ['free', 'pro'])
+      .order('price', { ascending: true })
+      .then(({ data }) => { if (data?.length) setDbPlans(data); });
+  }, []);
+
+  useEffect(() => {
+    if (dbPlans === null) return; // esperar datos antes de animar
     const ctx = gsap.context(() => {
       gsap.fromTo('.precio-card',
         { opacity: 0, y: 50, scale: 0.96 },
@@ -1003,28 +1015,22 @@ function PreciosSection({ onLogin }) {
       );
     }, sectionRef);
     return () => ctx.revert();
-  }, []);
+  }, [dbPlans]);
 
-  const plans = [
-    {
-      name: 'Gratis',
-      price: '$0',
-      period: 'para siempre',
-      desc: 'Para arrancar y probar el sistema sin riesgo.',
-      features: ['1 taller', 'Catálogo público', 'Hasta 10 productos', 'Cotizaciones básicas', 'Leads ilimitados'],
-      cta: 'Empezar gratis',
-      highlight: false,
-    },
-    {
-      name: 'Pro',
-      price: '$12.000',
-      period: 'por mes',
-      desc: 'Para el mueblista que ya tiene volumen y quiere crecer.',
-      features: ['Todo lo de Gratis', 'Productos ilimitados', 'Optimizador de cortes', 'Órdenes de producción', 'Control de inventario', 'PDF profesional', 'Soporte prioritario'],
-      cta: 'Empezar Pro',
-      highlight: true,
-    },
+  const FALLBACK = [
+    { plan_id: 'free', name: 'Gratis', price: 0,    period: 'para siempre', features: [{ label: 'Catálogo público' }, { label: 'Hasta 10 productos' }, { label: 'Cotizaciones básicas' }, { label: 'Leads ilimitados' }] },
+    { plan_id: 'pro',  name: 'Pro',    price: 9990,  period: 'por mes',      features: [{ label: 'Todo lo del plan Gratis' }, { label: 'Productos ilimitados' }, { label: 'Optimizador de cortes' }, { label: 'PDF profesional' }, { label: 'Soporte prioritario' }] },
   ];
+
+  const plans = (dbPlans || FALLBACK).map(p => ({
+    ...p,
+    highlight:  p.plan_id === 'pro',
+    priceLabel: p.price === 0 ? '$0' : `$${Number(p.price).toLocaleString('es-CL')}`,
+    cta:        p.plan_id === 'pro' ? 'Empezar Pro' : 'Empezar gratis',
+    desc:       p.plan_id === 'pro'
+      ? 'Para el mueblista que ya tiene volumen y quiere crecer.'
+      : 'Para arrancar y probar el sistema sin riesgo.',
+  }));
 
   return (
     <section
@@ -1081,16 +1087,16 @@ function PreciosSection({ onLogin }) {
                 {plan.name}
               </p>
               <p className="font-black" style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', color: C.linen }}>
-                {plan.price}
+                {plan.priceLabel}
                 <span className="text-sm font-medium ml-1" style={{ color: C.earth }}>/{plan.period}</span>
               </p>
               <p className="mt-2 text-sm" style={{ color: C.sand }}>{plan.desc}</p>
             </div>
             <ul className="my-8 space-y-2.5 flex-1">
-              {plan.features.map(f => (
-                <li key={f} className="flex items-center gap-2.5 text-sm" style={{ color: C.sand }}>
+              {(plan.features || []).map(f => (
+                <li key={f.label} className="flex items-center gap-2.5 text-sm" style={{ color: C.sand }}>
                   <CheckCircle2 size={14} style={{ color: plan.highlight ? C.oak : C.pine, shrink: 0 }} />
-                  {f}
+                  {f.label}
                 </li>
               ))}
             </ul>
