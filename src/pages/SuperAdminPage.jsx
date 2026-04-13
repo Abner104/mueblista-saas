@@ -61,13 +61,20 @@ function MetricCard({ icon: Icon, label, value, sub, color = 'text-amber-400', d
 
 function PlanSelector({ currentPlan, onSelect, loading }) {
   const [open, setOpen] = useState(false);
+  const ref = useCallback(node => {
+    if (!node) return;
+    function handleClick(e) { if (!node.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   const plans = [
     { value: 'free',       label: 'Free',       color: 'text-zinc-400'   },
     { value: 'pro',        label: 'Pro',        color: 'text-amber-400'  },
     { value: 'enterprise', label: 'Enterprise', color: 'text-violet-400' },
   ];
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
         disabled={loading}
@@ -79,11 +86,12 @@ function PlanSelector({ currentPlan, onSelect, loading }) {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            initial={{ opacity: 0, y: 4, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-9 z-30 rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden min-w-[130px]"
+            className="fixed z-[9999] rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl overflow-hidden min-w-[130px]"
+            style={{ marginTop: 4 }}
           >
             {plans.map(p => (
               <button
