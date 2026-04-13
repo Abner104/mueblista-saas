@@ -109,7 +109,7 @@ function Nav({ onLogin }) {
     >
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-6">
         {/* Logo */}
-        <img src="/LogoCarpento.png" alt="Carpento" className="h-14 w-auto" />
+        <img src="/LogoCarpento.png" alt="Carpento" className="h-20 w-auto max-w-[200px] object-contain" />
 
         {/* Links desktop */}
         <nav className="hidden md:flex items-center gap-8 text-sm" style={{ color: C.sand }}>
@@ -1233,7 +1233,7 @@ function Footer({ onLogin }) {
       style={{ borderTop: `1px solid ${C.border}` }}
     >
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-        <img src="/LogoCarpento.png" alt="Carpento" className="h-12 w-auto" />
+        <img src="/LogoCarpento.png" alt="Carpento" className="h-14 w-auto max-w-[180px] object-contain" />
         <p className="text-xs text-center" style={{ color: C.earth }}>
           © 2025 Carpento · El SaaS para talleres de muebles · Argentina
         </p>
