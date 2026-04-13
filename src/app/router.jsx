@@ -11,8 +11,11 @@ import OrdersPage from '../pages/OrdersPage';
 import LeadsPage from '../pages/LeadsPage';
 import WorkersPage from '../pages/WorkersPage';
 import CatalogPage from '../pages/CatalogPage';
+import BillingPage from '../pages/BillingPage';
+import SuperAdminPage from '../pages/SuperAdminPage';
 import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/features/auth/ProtectedRoute';
+import SuperAdminRoute from '../components/features/auth/SuperAdminRoute';
 import RootRoute from '../components/features/auth/RootRoute';
 import MaestroPage from '../pages/MaestroPage';
 import VendedorPage from '../pages/VendedorPage';
@@ -64,6 +67,17 @@ export const router = createBrowserRouter([
       { path: 'ventas',           element: <SalesRoomPage /> },
       { path: 'ordenes',          element: <OrdersPage /> },
       { path: 'trabajadores',     element: <WorkersPage /> },
+      { path: 'billing',          element: <BillingPage /> },
     ],
+  },
+
+  // ── Super Admin (requiere rol super_admin) ─────
+  {
+    path: '/super',
+    element: (
+      <SuperAdminRoute>
+        <SuperAdminPage />
+      </SuperAdminRoute>
+    ),
   },
 ]);

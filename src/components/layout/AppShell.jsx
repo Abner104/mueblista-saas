@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, Scissors, Boxes,
   Truck, Briefcase, ClipboardList, LogOut, ExternalLink,
-  Sun, Moon, Inbox, Menu, X, HardHat,
+  Sun, Moon, Inbox, Menu, X, HardHat, CreditCard,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { to: '/app/ventas',       label: 'Editor de catálogo', icon: Briefcase,       badge: null },
   { to: '/app/ordenes',      label: 'Órdenes',            icon: ClipboardList,   badge: 'orders' },
   { to: '/app/trabajadores', label: 'Equipo',             icon: HardHat,         badge: null },
+  { to: '/app/billing',     label: 'Suscripción',        icon: CreditCard,      badge: null },
 ];
 
 const pageVariants = {
