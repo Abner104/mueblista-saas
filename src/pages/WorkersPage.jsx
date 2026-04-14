@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HardHat, Plus, X, Trash2, Phone, ChevronDown,
-  Mail, Briefcase, CheckCircle2, Send, DollarSign,
-  TrendingUp, Users,
+  Mail, Briefcase, CheckCircle2, DollarSign,
+  Users, KeyRound, Eye, EyeOff, AlertCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
@@ -27,10 +27,14 @@ const EMPTY = { name: '', role: ROLES_DISPLAY[0], worker_role: 'maestro', phone:
 
 // ── Modal nuevo/editar trabajador ─────────────────────────────────
 function WorkerModal({ worker, onClose, onSaved, isDark }) {
-  const [form, setForm]     = useState(worker ? { ...EMPTY, ...worker } : EMPTY);
+  const [form, setForm]       = useState(worker ? { ...EMPTY, ...worker } : EMPTY);
   const [loading, setLoading] = useState(false);
-  const [inviting, setInviting] = useState(false);
-  const [invited,  setInvited]  = useState(!!worker?.invited_user_id);
+  const [creatingAccess, setCreatingAccess] = useState(false);
+  const [accessCreated, setAccessCreated]   = useState(!!worker?.invited_user_id);
+  const [credEmail, setCredEmail]     = useState(worker?.email || '');
+  const [credPass,  setCredPass]      = useState('');
+  const [showPass,  setShowPass]      = useState(false);
+  const [accessError, setAccessError] = useState('');
   const isEdit = !!worker;
 
   const tk = isDark
@@ -61,27 +65,37 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
     onClose();
   }
 
-  async function handleInvite() {
-    if (!form.email) return alert('Ingresá un email primero');
-    if (!isEdit)     return alert('Guardá el trabajador primero, luego invitalo');
-    setInviting(true);
+  async function handleCreateAccess() {
+    if (!credEmail) { setAccessError('Ingresá un correo'); return; }
+    if (!credPass)  { setAccessError('Ingresá una contraseña'); return; }
+    if (credPass.length < 6) { setAccessError('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (!isEdit) { setAccessError('Guardá el trabajador primero'); return; }
 
-    // Usamos el admin API de Supabase para invitar al usuario
-    const { error } = await supabase.auth.admin.inviteUserByEmail(form.email, {
-      data: { worker_id: worker.id, worker_name: form.name },
+    setCreatingAccess(true);
+    setAccessError('');
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase.functions.invoke('create-worker-user', {
+      body: {
+        email:       credEmail,
+        password:    credPass,
+        worker_id:   worker.id,
+        worker_name: form.name,
+        owner_id:    user.id,
+      },
     });
 
-    if (error) {
-      // Si no tenemos acceso admin, usamos la función alternativa
-      // Guardamos el email para que cuando se registre se vincule automáticamente
-      await supabase.from('workers').update({ email: form.email }).eq('id', worker.id);
-      alert(`Invitación enviada a ${form.email}. El trabajador debe registrarse con ese email en /login`);
-      setInvited(true);
-    } else {
-      setInvited(true);
-      alert(`¡Invitación enviada a ${form.email}!`);
+    setCreatingAccess(false);
+
+    if (error || data?.error) {
+      setAccessError(error?.message || data?.error || 'Error al crear acceso');
+      return;
     }
-    setInviting(false);
+
+    setAccessCreated(true);
+    setCredPass('');
+    onSaved();
   }
 
   return (
@@ -167,18 +181,11 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
             </motion.div>
           )}
 
-          {/* Teléfono + Email */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Teléfono</Label>
-              <input value={form.phone} onChange={e => setF('phone', e.target.value)}
-                placeholder="+54 9 11 1234-5678" className={InputCls} />
-            </div>
-            <div>
-              <Label>Email (para invitar)</Label>
-              <input type="email" value={form.email} onChange={e => setF('email', e.target.value)}
-                placeholder="juan@correo.com" className={InputCls} />
-            </div>
+          {/* Teléfono */}
+          <div>
+            <Label>Teléfono</Label>
+            <input value={form.phone} onChange={e => setF('phone', e.target.value)}
+              placeholder="+56 9 1234 5678" className={InputCls} />
           </div>
 
           {/* Notas */}
@@ -190,28 +197,91 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
               className={`${InputCls} resize-none`} />
           </div>
 
-          <div className="flex gap-2">
-            <button disabled={loading}
-              className="flex-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-2xl py-3 transition text-sm">
-              {loading ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Agregar trabajador'}
-            </button>
+          {/* Guardar trabajador */}
+          <button disabled={loading}
+            className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-2xl py-3 transition text-sm">
+            {loading ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Agregar trabajador'}
+          </button>
 
-            {isEdit && form.email && (
-              <button
-                type="button"
-                onClick={handleInvite}
-                disabled={inviting || invited}
-                className={`flex items-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium transition border ${
-                  invited
-                    ? isDark ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-emerald-300 text-emerald-600 bg-emerald-50'
-                    : isDark ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-stone-300 text-stone-600 hover:bg-stone-100'
-                }`}
-              >
-                {invited ? <CheckCircle2 size={15} /> : <Send size={15} />}
-                {inviting ? 'Enviando…' : invited ? 'Invitado' : 'Invitar'}
-              </button>
-            )}
-          </div>
+          {/* ── Acceso al sistema ── */}
+          {isEdit && (
+            <div className={`rounded-2xl border p-4 space-y-3 ${isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-stone-200 bg-stone-50'}`}>
+              <div className="flex items-center gap-2">
+                <KeyRound size={14} className="text-amber-400 shrink-0" />
+                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-stone-900'}`}>
+                  {accessCreated ? 'Acceso al sistema activo' : 'Crear acceso al sistema'}
+                </p>
+                {accessCreated && <CheckCircle2 size={14} className="text-emerald-400" />}
+              </div>
+
+              {accessCreated ? (
+                <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                  Este trabajador ya tiene credenciales. Para cambiar la contraseña, creá un nuevo acceso con el mismo correo.
+                </p>
+              ) : (
+                <>
+                  <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>
+                    El trabajador podrá ingresar con estas credenciales desde la página de login.
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <label className={`block text-xs mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Correo</label>
+                      <div className="relative">
+                        <Mail size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
+                        <input
+                          type="email"
+                          value={credEmail}
+                          onChange={e => { setCredEmail(e.target.value); setAccessError(''); }}
+                          placeholder="trabajador@correo.com"
+                          className={`${InputCls} pl-8`}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={`block text-xs mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Contraseña</label>
+                      <div className="relative">
+                        <KeyRound size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
+                        <input
+                          type={showPass ? 'text' : 'password'}
+                          value={credPass}
+                          onChange={e => { setCredPass(e.target.value); setAccessError(''); }}
+                          placeholder="Mínimo 6 caracteres"
+                          className={`${InputCls} pl-8 pr-10`}
+                        />
+                        <button type="button" onClick={() => setShowPass(v => !v)}
+                          className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'} transition`}>
+                          {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {accessError && (
+                    <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                      <AlertCircle size={12} className="shrink-0" /> {accessError}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleCreateAccess}
+                    disabled={creatingAccess}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition disabled:opacity-50 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                  >
+                    {creatingAccess
+                      ? <><div className="w-3.5 h-3.5 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" /> Creando acceso…</>
+                      : <><KeyRound size={14} /> Crear acceso</>
+                    }
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <p className={`text-xs text-center ${isDark ? 'text-zinc-600' : 'text-stone-400'}`}>
+              Después de guardar, podrás crear las credenciales de acceso.
+            </p>
+          )}
         </form>
       </motion.div>
     </motion.div>
