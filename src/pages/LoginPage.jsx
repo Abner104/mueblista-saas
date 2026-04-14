@@ -79,6 +79,7 @@ export default function LoginPage() {
         email: form.email,
         password: form.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/app`,
           data: { full_name: form.fullName, shop_slug: slug, shop_name: form.shopName },
         },
       });
