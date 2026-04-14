@@ -1,0 +1,2 @@
+* text=auto
+supabase/functions/**/*.ts text eol=lf
