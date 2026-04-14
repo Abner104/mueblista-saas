@@ -74,25 +74,38 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
     setCreatingAccess(true);
     setAccessError('');
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // Crear cuenta del trabajador con signUp
+    // Usamos un cliente separado para no cerrar la sesión del dueño
+    const { createClient } = await import('@supabase/supabase-js');
+    const tempClient = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY,
+    );
 
-    const { data, error } = await supabase.functions.invoke('create-worker-user', {
-      body: {
-        email:       credEmail,
-        password:    credPass,
-        worker_id:   worker.id,
-        worker_name: form.name,
-        owner_id:    user.id,
+    const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
+      email: credEmail,
+      password: credPass,
+      options: {
+        data: { worker_id: worker.id, worker_name: form.name, role: 'worker' },
+        emailRedirectTo: `${window.location.origin}/app`,
       },
     });
 
-    setCreatingAccess(false);
-
-    if (error || data?.error) {
-      setAccessError(error?.message || data?.error || 'Error al crear acceso');
+    if (signUpError) {
+      setCreatingAccess(false);
+      setAccessError(signUpError.message);
       return;
     }
 
+    // Vincular el user_id al worker en la tabla
+    if (signUpData.user) {
+      await supabase
+        .from('workers')
+        .update({ invited_user_id: signUpData.user.id, email: credEmail })
+        .eq('id', worker.id);
+    }
+
+    setCreatingAccess(false);
     setAccessCreated(true);
     setCredPass('');
     onSaved();
