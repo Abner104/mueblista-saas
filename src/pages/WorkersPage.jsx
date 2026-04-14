@@ -165,21 +165,19 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
           </div>
 
           {/* Comisión — solo para vendedores */}
-          {form.worker_role === 'vendedor' && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-              <Label>Comisión por ventas (%)</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number" min="0" max="100" step="0.5"
-                  value={form.commission_pct}
-                  onChange={e => setF('commission_pct', e.target.value)}
-                  className={`${InputCls} flex-1`}
-                  placeholder="0"
-                />
-                <span className={`text-sm font-bold ${tk.text}`}>%</span>
-              </div>
-            </motion.div>
-          )}
+          <div className={`overflow-hidden transition-all duration-200 ${form.worker_role === 'vendedor' ? 'opacity-100 max-h-24' : 'opacity-0 max-h-0'}`}>
+            <Label>Comisión por ventas (%)</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" min="0" max="100" step="0.5"
+                value={form.commission_pct}
+                onChange={e => setF('commission_pct', e.target.value)}
+                className={`${InputCls} flex-1`}
+                placeholder="0"
+              />
+              <span className={`text-sm font-bold ${tk.text}`}>%</span>
+            </div>
+          </div>
 
           {/* Teléfono */}
           <div>
