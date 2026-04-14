@@ -372,7 +372,7 @@ function WorkerCard({ worker, onEdit, onDelete, commissions, isDark }) {
         </div>
       ) : worker.email ? (
         <div className={`flex items-center gap-1.5 text-xs ${tk.sub}`}>
-          <Send size={12} /> Sin acceso — editá para invitar
+          <KeyRound size={12} /> Sin acceso — editá para crear credenciales
         </div>
       ) : null}
 
