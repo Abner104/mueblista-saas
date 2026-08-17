@@ -10,12 +10,16 @@ import {
   Check, RefreshCw, Package, Inbox, Shield,
   LogOut, ExternalLink, AlertTriangle, Trash2, ChevronUp,
   Zap, RotateCcw, Eye, Mail, Settings, Plus, X,
-  DollarSign, Users, Save, Pencil,
+  DollarSign, Users, Save, Pencil, Receipt, XCircle, ImageIcon, Scissors,
 } from 'lucide-react';
 import { useSuperAdminStore } from '../store/superAdminStore';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { COUNTRIES } from '../lib/countries';
+
+// Monedas únicas soportadas por país, en el orden de COUNTRIES.
+const PLAN_CURRENCIES = [...new Set(COUNTRIES.map(c => c.currency))];
 
 // ── Colores de plan ────────────────────────────────────────────────
 const PLAN_COLORS = {
@@ -110,7 +114,7 @@ function PlanSelector({ currentPlan, onSelect, loading }) {
 }
 
 // ── Fila expandible de taller ──────────────────────────────────────
-function ShopRow({ shop, onPlanChange, onDelete, onResetTrial, updatingPlan, i }) {
+function ShopRow({ shop, onPlanChange, onDelete, onResetTrial, onToggleOptimizer, updatingPlan, i }) {
   const [expanded, setExpanded] = useState(false);
   const trialEnd  = shop.trial_ends_at ? new Date(shop.trial_ends_at) : null;
   const trialDays = trialEnd ? Math.max(0, Math.ceil((trialEnd - new Date()) / 86400000)) : null;
@@ -196,9 +200,17 @@ function ShopRow({ shop, onPlanChange, onDelete, onResetTrial, updatingPlan, i }
                     {shop.sub_status === 'trialing' && (
                       <button onClick={e => { e.stopPropagation(); onResetTrial(shop.owner_id); }}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 text-xs text-blue-300 hover:bg-blue-500/20 transition">
-                        <RotateCcw size={12} /> Resetear trial (+14 días)
+                        <RotateCcw size={12} /> Resetear trial (+30 días)
                       </button>
                     )}
+                    <button onClick={e => { e.stopPropagation(); onToggleOptimizer(shop.owner_id, shop.optimizer_disabled); }}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs transition ${
+                        shop.optimizer_disabled
+                          ? 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                          : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                      }`}>
+                      <Scissors size={12} /> Cortes {shop.optimizer_disabled ? 'oculto' : 'visible'}
+                    </button>
                   </div>
                   <button onClick={e => { e.stopPropagation(); onDelete(shop.owner_id, shop.shop_name); }}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10 text-xs text-red-400 hover:bg-red-500/20 transition ml-auto">
@@ -216,9 +228,14 @@ function ShopRow({ shop, onPlanChange, onDelete, onResetTrial, updatingPlan, i }
 
 // ── Editor de un plan ──────────────────────────────────────────────
 function PlanEditor({ plan, onSave, onCancel }) {
-  const [form, setForm] = useState({ ...plan, features: [...(plan.features || [])] });
+  const [form, setForm] = useState({
+    ...plan,
+    features: [...(plan.features || [])],
+    prices: { ...(plan.prices || {}) },
+  });
   const [saving, setSaving] = useState(false);
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const setPrice = (currency, val) => setForm(p => ({ ...p, prices: { ...p.prices, [currency]: Number(val) } }));
 
   function setFeature(i, val) {
     setForm(p => {
@@ -261,20 +278,37 @@ function PlanEditor({ plan, onSave, onCancel }) {
           <input value={form.name} onChange={e => setF('name', e.target.value)} className={inp} />
         </div>
         <div>
-          <label className="block text-xs text-zinc-500 mb-1 uppercase tracking-wider">Precio ({form.currency})</label>
-          <input type="number" value={form.price} onChange={e => setF('price', Number(e.target.value))} className={inp} />
-        </div>
-        <div>
           <label className="block text-xs text-zinc-500 mb-1 uppercase tracking-wider">Período</label>
           <input value={form.period} onChange={e => setF('period', e.target.value)} placeholder="por mes" className={inp} />
         </div>
-        <div>
+        <div className="col-span-2 md:col-span-2">
           <label className="block text-xs text-zinc-500 mb-1 uppercase tracking-wider">Color (hex)</label>
           <div className="flex gap-2 items-center">
             <input type="color" value={form.color} onChange={e => setF('color', e.target.value)}
               className="h-10 w-12 rounded-xl border border-zinc-700 bg-zinc-800 cursor-pointer p-1" />
             <input value={form.color} onChange={e => setF('color', e.target.value)} className={`${inp} flex-1`} />
           </div>
+        </div>
+      </div>
+
+      {/* Precios por moneda */}
+      <div>
+        <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
+          Precio por moneda — cada país usa su moneda (ver Venezuela → USD)
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {PLAN_CURRENCIES.map(currency => (
+            <div key={currency}>
+              <label className="block text-xs text-zinc-600 mb-1">{currency}</label>
+              <input
+                type="number"
+                value={form.prices?.[currency] ?? ''}
+                onChange={e => setPrice(currency, e.target.value)}
+                placeholder="0"
+                className={inp}
+              />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -358,6 +392,49 @@ function PlanEditor({ plan, onSave, onCancel }) {
   );
 }
 
+// ── Fila de comprobante pendiente ────────────────────────────────────
+function PendingProofRow({ proof, onReview, reviewing }) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-wrap items-center gap-4">
+      <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+        <Receipt size={16} className="text-amber-400" />
+      </div>
+      <div className="flex-1 min-w-[160px]">
+        <p className="text-sm font-semibold text-white">{proof.shop_name || '—'}</p>
+        <p className="text-xs text-zinc-500">{proof.email}</p>
+      </div>
+      <div className="text-xs text-zinc-400">
+        <p><span className="text-zinc-600">Monto:</span> {proof.amount} {proof.currency}</p>
+        <p><span className="text-zinc-600">Método:</span> {proof.method}</p>
+      </div>
+      <div className="text-xs text-zinc-400 max-w-[180px] truncate">
+        <span className="text-zinc-600">Ref:</span> {proof.reference || '—'}
+      </div>
+      {proof.proof_url && (
+        <a href={proof.proof_url} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-800 text-xs text-zinc-300 hover:bg-zinc-700 transition">
+          <ImageIcon size={12} /> Ver comprobante
+        </a>
+      )}
+      <div className="flex items-center gap-2 ml-auto">
+        <button
+          onClick={() => onReview(proof.id, false)}
+          disabled={reviewing === proof.id}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10 text-xs text-red-400 hover:bg-red-500/20 transition disabled:opacity-50">
+          <XCircle size={12} /> Rechazar
+        </button>
+        <button
+          onClick={() => onReview(proof.id, true)}
+          disabled={reviewing === proof.id}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50">
+          {reviewing === proof.id ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+          Aprobar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Página principal ───────────────────────────────────────────────
 export default function SuperAdminPage() {
   const { metrics, shops, metricsLoading, loadMetrics, updateShopPlan } = useSuperAdminStore();
@@ -368,7 +445,8 @@ export default function SuperAdminPage() {
   const [filterPlan, setFilterPlan] = useState('all');
   const [updatingPlan, setUpdatingPlan] = useState(null);
   const [toast, setToast]           = useState(null);
-  const [activeTab, setActiveTab]   = useState('talleres'); // 'talleres' | 'planes'
+  const [activeTab, setActiveTab]   = useState('talleres'); // 'talleres' | 'planes' | 'comprobantes'
+  const [reviewingProof, setReviewingProof] = useState(null);
 
   // Plan config
   const [planConfigs, setPlanConfigs] = useState([]);
@@ -401,13 +479,37 @@ export default function SuperAdminPage() {
   }
 
   async function handleResetTrial(ownerId) {
-    const newEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const newEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const { error } = await supabase
       .from('subscriptions')
       .update({ trial_ends_at: newEnd, status: 'trialing', updated_at: new Date().toISOString() })
       .eq('owner_id', ownerId);
-    if (!error) { showToast('Trial reseteado por 14 días más', 'ok'); loadMetrics(); }
+    if (!error) { showToast('Trial reseteado por 30 días más', 'ok'); loadMetrics(); }
     else          showToast('Error al resetear trial', 'err');
+  }
+
+  async function handleToggleOptimizer(ownerId, currentlyDisabled) {
+    const { error } = await supabase
+      .from('shop_config')
+      .update({ optimizer_disabled: !currentlyDisabled })
+      .eq('owner_id', ownerId);
+    if (!error) { showToast(!currentlyDisabled ? 'Optimizador de cortes ocultado' : 'Optimizador de cortes reactivado', 'ok'); loadMetrics(); }
+    else          showToast('Error al cambiar el optimizador', 'err');
+  }
+
+  async function handleReviewProof(proofId, approve) {
+    setReviewingProof(proofId);
+    const { error } = await supabase.rpc('review_payment_proof', {
+      proof_id: proofId,
+      approve,
+      admin_notes: '',
+    });
+    setReviewingProof(null);
+    showToast(
+      error ? 'Error al procesar el comprobante' : approve ? 'Pago aprobado — plan Pro activado' : 'Comprobante rechazado',
+      error ? 'err' : 'ok',
+    );
+    if (!error) loadMetrics();
   }
 
   async function handleSavePlan(form) {
@@ -415,7 +517,8 @@ export default function SuperAdminPage() {
       .from('plan_config')
       .update({
         name:          form.name,
-        price:         form.price,
+        price:         form.prices?.CLP ?? form.price, // legacy fallback
+        prices:        form.prices,
         period:        form.period,
         color:         form.color,
         max_products:  form.max_products,
@@ -454,9 +557,12 @@ export default function SuperAdminPage() {
     return days >= 0 && days <= 3;
   }).length;
 
+  const pendingProofs = m.pending_proofs_list || [];
+
   const TABS = [
-    { id: 'talleres', label: 'Talleres', icon: Store },
-    { id: 'planes',   label: 'Planes',   icon: Settings },
+    { id: 'talleres',     label: 'Talleres',     icon: Store },
+    { id: 'comprobantes', label: 'Comprobantes', icon: Receipt, badge: pendingProofs.length },
+    { id: 'planes',       label: 'Planes',        icon: Settings },
   ];
 
   return (
@@ -483,6 +589,11 @@ export default function SuperAdminPage() {
                   activeTab === t.id ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-zinc-300'
                 }`}>
                 <t.icon size={12} /> {t.label}
+                {!!t.badge && (
+                  <span className="flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-black text-[10px] font-bold">
+                    {t.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -577,6 +688,7 @@ export default function SuperAdminPage() {
                           onPlanChange={handlePlanChange}
                           onDelete={handleDelete}
                           onResetTrial={handleResetTrial}
+                          onToggleOptimizer={handleToggleOptimizer}
                         />
                       ))}
                     </tbody>
@@ -585,6 +697,36 @@ export default function SuperAdminPage() {
               </div>
             </div>
           </>
+        )}
+
+        {/* ── TAB: COMPROBANTES ── */}
+        {activeTab === 'comprobantes' && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-black text-white">Comprobantes pendientes</h2>
+              <p className="text-sm text-zinc-500 mt-1">
+                Pagos manuales (USDT, Zelle, Binance, Pago Móvil) esperando verificación. Al aprobar, el plan Pro se activa al instante.
+              </p>
+            </div>
+
+            {pendingProofs.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-12 text-center text-zinc-600">
+                <Receipt size={32} strokeWidth={1} className="mx-auto mb-3" />
+                <p className="text-sm">No hay comprobantes pendientes.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingProofs.map(proof => (
+                  <PendingProofRow
+                    key={proof.id}
+                    proof={proof}
+                    onReview={handleReviewProof}
+                    reviewing={reviewingProof}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── TAB: PLANES ── */}
@@ -631,9 +773,21 @@ export default function SuperAdminPage() {
                                   <h3 className="font-bold text-white">{plan.name}</h3>
                                   <span className="text-xs text-zinc-600 uppercase tracking-wider">{plan.plan_id}</span>
                                 </div>
-                                <p className="text-sm text-zinc-400 mt-0.5">
-                                  <span className="font-bold text-white text-lg">${Number(plan.price).toLocaleString('es-CL')}</span>
-                                  <span className="text-zinc-600"> {plan.currency} / {plan.period}</span>
+                                <p className="text-sm text-zinc-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  {Object.entries(plan.prices || {}).length > 0 ? (
+                                    Object.entries(plan.prices).map(([currency, amount]) => (
+                                      <span key={currency}>
+                                        <span className="font-bold text-white">${Number(amount).toLocaleString()}</span>
+                                        <span className="text-zinc-600 text-xs"> {currency}</span>
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span>
+                                      <span className="font-bold text-white text-lg">${Number(plan.price).toLocaleString()}</span>
+                                      <span className="text-zinc-600"> {plan.currency}</span>
+                                    </span>
+                                  )}
+                                  <span className="text-zinc-600 text-xs">/ {plan.period}</span>
                                 </p>
                               </div>
                             </div>

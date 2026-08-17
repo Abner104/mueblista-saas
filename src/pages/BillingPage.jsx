@@ -9,11 +9,22 @@ import { motion } from 'framer-motion';
 import {
   Crown, Check, Clock, AlertTriangle,
   CreditCard, ExternalLink, RefreshCw, Shield,
+  Copy, Upload, Hourglass, XCircle,
 } from 'lucide-react';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
+import { getCountry } from '../lib/countries';
+import { formatCurrency, formatDate, getPlanPrice } from '../lib/formatters';
+
+// Datos de cobro manual — reemplazá con tus datos reales.
+const MANUAL_PAYMENT_INFO = {
+  usdt:       { label: 'USDT (TRC20)', value: 'TU_WALLET_USDT_AQUI' },
+  binance:    { label: 'Binance Pay ID', value: 'TU_BINANCE_ID_AQUI' },
+  zelle:      { label: 'Zelle', value: 'tuemail@ejemplo.com' },
+  pago_movil: { label: 'Pago Móvil', value: 'Banco · Cédula · Teléfono' },
+};
 
 function FeatureRow({ label, locked = false }) {
   return (
@@ -56,16 +67,174 @@ function TrialBanner({ daysLeft }) {
   );
 }
 
+function ManualPaymentPanel({ user, country, proPrice, tk }) {
+  const [method, setMethod] = useState('usdt');
+  const [reference, setReference] = useState('');
+  const [proofFile, setProofFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [pendingProof, setPendingProof] = useState(null);
+  const [checkedExisting, setCheckedExisting] = useState(false);
+
+  useEffect(() => {
+    async function checkExisting() {
+      const { data } = await supabase
+        .from('payment_proofs')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setPendingProof(data || null);
+      setCheckedExisting(true);
+    }
+    if (user?.id) checkExisting();
+  }, [user?.id]);
+
+  async function handleSubmit() {
+    if (!reference.trim()) { setError('Ingresá el número de referencia o hash de la transacción'); return; }
+    setSubmitting(true);
+    setError('');
+
+    let proof_url = null;
+    if (proofFile) {
+      const path = `${user.id}/${Date.now()}-${proofFile.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('payment-proofs')
+        .upload(path, proofFile);
+      if (uploadError) { setError('No se pudo subir el comprobante'); setSubmitting(false); return; }
+      const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(path);
+      proof_url = urlData?.publicUrl || path;
+    }
+
+    const { data, error: insertError } = await supabase.from('payment_proofs').insert({
+      owner_id: user.id,
+      plan: 'pro',
+      amount: proPrice.amount,
+      currency: proPrice.currency,
+      method,
+      reference: reference.trim(),
+      proof_url,
+      status: 'pending',
+    }).select().maybeSingle();
+
+    setSubmitting(false);
+    if (insertError) { setError('No se pudo enviar el comprobante. Probá de nuevo.'); return; }
+    setPendingProof(data);
+  }
+
+  function copyValue(value) {
+    navigator.clipboard?.writeText(value);
+  }
+
+  if (!checkedExisting) return null;
+
+  if (pendingProof?.status === 'pending') {
+    return (
+      <div className="mt-4 flex items-start gap-3 rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-300">
+        <Hourglass size={16} className="shrink-0 mt-0.5" />
+        <div>
+          <p className="font-semibold">Comprobante enviado — pendiente de verificación</p>
+          <p className="text-xs text-blue-300/70 mt-1">
+            Vamos a activar tu plan Pro apenas confirmemos el pago. Referencia: {pendingProof.reference}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mt-4 rounded-xl border ${tk.card} p-4 space-y-4`}>
+      {pendingProof?.status === 'rejected' && (
+        <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2.5 text-xs text-red-300">
+          <XCircle size={14} className="shrink-0 mt-0.5" />
+          <span>Tu comprobante anterior no pudo verificarse{pendingProof.notes ? `: ${pendingProof.notes}` : '.'} Podés enviar uno nuevo.</span>
+        </div>
+      )}
+
+      <div>
+        <p className={`text-xs font-bold uppercase tracking-widest ${tk.sub} mb-2`}>Pagá con</p>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(MANUAL_PAYMENT_INFO).map(([key, info]) => (
+            <button
+              key={key}
+              onClick={() => setMethod(key)}
+              className={`px-3 py-2 rounded-lg text-xs font-semibold border transition ${
+                method === key ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : `${tk.card} ${tk.sub}`
+              }`}
+            >
+              {info.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2.5">
+          <span className="text-sm font-mono text-white flex-1 truncate">{MANUAL_PAYMENT_INFO[method].value}</span>
+          <button onClick={() => copyValue(MANUAL_PAYMENT_INFO[method].value)} className="text-zinc-400 hover:text-white transition shrink-0">
+            <Copy size={14} />
+          </button>
+        </div>
+        <p className={`text-xs ${tk.sub} mt-2`}>
+          Monto a transferir: <span className="font-bold text-white">{formatCurrency(proPrice.amount, country.code, proPrice.currency)}</span>
+        </p>
+      </div>
+
+      <div>
+        <label className={`block text-xs font-bold uppercase tracking-widest ${tk.sub} mb-1.5`}>
+          N.º de referencia / hash de la transacción
+        </label>
+        <input
+          type="text"
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder="Ej: 000123456789"
+          className="w-full rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500 transition placeholder-zinc-600"
+        />
+      </div>
+
+      <div>
+        <label className={`block text-xs font-bold uppercase tracking-widest ${tk.sub} mb-1.5`}>
+          Captura del comprobante (opcional)
+        </label>
+        <label className="flex items-center gap-2 rounded-lg border border-dashed border-zinc-700 px-3 py-2.5 text-xs text-zinc-400 cursor-pointer hover:border-amber-500/50 transition">
+          <Upload size={13} />
+          {proofFile ? proofFile.name : 'Subir imagen'}
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => setProofFile(e.target.files?.[0] || null)} />
+        </label>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-300">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={handleSubmit}
+        disabled={submitting}
+        className="w-full rounded-xl py-3 text-sm font-black transition disabled:opacity-60 flex items-center justify-center gap-2"
+        style={{ background: '#c8923a', color: '#0f0d0b' }}
+      >
+        {submitting ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+        {submitting ? 'Enviando...' : 'Ya pagué, enviar comprobante'}
+      </button>
+    </div>
+  );
+}
+
 export default function BillingPage() {
   const { user } = useAuthStore();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
-  const { plan, isPro, isTrialing, trialEndsAt, trialDaysLeft, load } = useSubscriptionStore();
+  const { plan, isPro, isTrialing, trialEndsAt, trialDaysLeft, country: countryCode, load } = useSubscriptionStore();
+  const country = getCountry(countryCode);
+  const isManualPayment = country.paymentMethod === 'manual';
   const [loadingMP, setLoadingMP] = useState(false);
   const [error, setError] = useState('');
   const [mpUrl, setMpUrl] = useState(null);
   const [planes, setPlanes] = useState([]);
-  const [pricePro, setPricePro] = useState(12000);
+  const [proPlanConfig, setProPlanConfig] = useState(null);
+  const proPrice = getPlanPrice(proPlanConfig, country.code); // { amount, currency }
 
   const tk = isDark ? {
     bg:     'bg-zinc-950',
@@ -94,7 +263,7 @@ export default function BillingPage() {
       if (data?.length) {
         setPlanes(data);
         const pro = data.find(p => p.plan_id === 'pro');
-        if (pro) setPricePro(pro.price);
+        if (pro) setProPlanConfig(pro);
       }
     }
     fetchPlanes();
@@ -111,7 +280,8 @@ export default function BillingPage() {
           owner_id:    user.id,
           owner_email: user.email,
           plan:        'pro',
-          price:       pricePro,
+          price:       proPrice.amount,
+          currency:    proPrice.currency,
         },
       });
 
@@ -170,11 +340,11 @@ export default function BillingPage() {
             </div>
             {trialEndsAt && isTrialing && (
               <p className={`text-xs ${tk.sub} mt-1`}>
-                Trial vence el {trialEndsAt.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
+                Trial vence el {formatDate(trialEndsAt, country.code)}
               </p>
             )}
           </div>
-          {(!isPro || isTrialing) && (
+          {!isManualPayment && (!isPro || isTrialing) && (
             <motion.button
               onClick={handleUpgrade}
               disabled={loadingMP}
@@ -207,6 +377,10 @@ export default function BillingPage() {
             </a>
           </div>
         )}
+
+        {isManualPayment && (!isPro || isTrialing) && (
+          <ManualPaymentPanel user={user} country={country} proPrice={proPrice} tk={tk} />
+        )}
       </div>
 
       {/* Comparación de planes */}
@@ -214,7 +388,8 @@ export default function BillingPage() {
         {planes.map((p, i) => {
           const isCurrentPlan = p.plan_id === plan || (p.plan_id === 'pro' && isPro && !isTrialing);
           const isHighlight = p.plan_id === 'pro';
-          const priceLabel = p.price === 0 ? '$0' : `$${Number(p.price).toLocaleString('es-CL')}`;
+          const resolvedPrice = getPlanPrice(p, country.code);
+          const priceLabel = formatCurrency(resolvedPrice.amount, country.code, resolvedPrice.currency);
           return (
             <motion.div
               key={p.plan_id}
@@ -252,7 +427,7 @@ export default function BillingPage() {
                 ))}
               </div>
 
-              {isHighlight && (!isPro || isTrialing) && (
+              {isHighlight && !isManualPayment && (!isPro || isTrialing) && (
                 <button
                   onClick={handleUpgrade}
                   disabled={loadingMP}
@@ -274,10 +449,21 @@ export default function BillingPage() {
           <Shield size={18} className="text-emerald-400" />
         </div>
         <div>
-          <p className={`text-sm font-semibold ${tk.text}`}>Pago 100% seguro con MercadoPago</p>
-          <p className={`text-xs ${tk.sub} mt-0.5`}>
-            Procesamos los pagos a través de MercadoPago. Podés pagar con tarjeta de crédito, débito o dinero en cuenta. Cancelá cuando quieras.
-          </p>
+          {isManualPayment ? (
+            <>
+              <p className={`text-sm font-semibold ${tk.text}`}>Pago manual verificado</p>
+              <p className={`text-xs ${tk.sub} mt-0.5`}>
+                Transferí el monto, enviá tu comprobante y activamos tu plan Pro apenas lo verifiquemos (generalmente en menos de 24 hs).
+              </p>
+            </>
+          ) : (
+            <>
+              <p className={`text-sm font-semibold ${tk.text}`}>Pago 100% seguro con MercadoPago</p>
+              <p className={`text-xs ${tk.sub} mt-0.5`}>
+                Procesamos los pagos a través de MercadoPago. Podés pagar con tarjeta de crédito, débito o dinero en cuenta. Cancelá cuando quieras.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

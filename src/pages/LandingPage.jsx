@@ -80,7 +80,7 @@ function MagBtn({ children, className, style, onClick }) {
 
 // ─── NAV ───────────────────────────────────────────────────────────────────
 
-function Nav({ onLogin }) {
+function Nav({ onLogin, onRegister }) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -127,7 +127,7 @@ function Nav({ onLogin }) {
             Ingresar
           </button>
           <MagBtn
-            onClick={onLogin}
+            onClick={onRegister}
             className="px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors"
             style={{ background: C.oak, color: C.dark }}
           >
@@ -158,6 +158,11 @@ function Nav({ onLogin }) {
               </button>
             ))}
             <button onClick={onLogin}
+              className="block w-full text-left py-2.5 text-sm"
+              style={{ color: C.sand }}>
+              Ingresar
+            </button>
+            <button onClick={onRegister}
               className="w-full rounded-xl py-3 text-sm font-bold"
               style={{ background: C.oak, color: C.dark }}>
               Empezar gratis
@@ -1241,7 +1246,7 @@ function Footer({ onLogin }) {
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         <img src="/LogoCarpento.png" alt="Carpento" className="h-14 w-auto max-w-[180px] object-contain" />
         <p className="text-xs text-center" style={{ color: C.earth }}>
-          © 2025 Carpento · El SaaS para talleres de muebles · Argentina
+          © 2025 Carpento · El SaaS para talleres de muebles
         </p>
         <button
           onClick={onLogin}
@@ -1264,15 +1269,21 @@ export default function LandingPage() {
     navigate('/login');
   }
 
+  // CTAs de "Empezar gratis / Empezar Pro" deben abrir el formulario
+  // en modo registro, no en login — es lo que el texto del botón promete.
+  function goRegister() {
+    navigate('/login?register=1');
+  }
+
   return (
     <div style={{ background: C.bg, color: C.linen }} className="min-h-screen">
-      <Nav onLogin={goLogin} />
-      <HeroSection onLogin={goLogin} />
+      <Nav onLogin={goLogin} onRegister={goRegister} />
+      <HeroSection onLogin={goRegister} />
       <ModulesSection />
       <ProcesoSection />
       <PipelineSection />
-      <PreciosSection onLogin={goLogin} />
-      <CtaSection onLogin={goLogin} />
+      <PreciosSection onLogin={goRegister} />
+      <CtaSection onLogin={goRegister} />
       <Footer onLogin={goLogin} />
     </div>
   );

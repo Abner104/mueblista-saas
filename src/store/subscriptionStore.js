@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabaseClient';
+import { DEFAULT_COUNTRY_CODE } from '../lib/countries';
 
 const DEFAULT_FREE_LIMITS = {
   max_products:      10,
@@ -39,10 +40,19 @@ export const useSubscriptionStore = create((set, get) => ({
   isTrialing:  false,
   trialEndsAt: null,
   limits:      DEFAULT_FREE_LIMITS,
+  country:     DEFAULT_COUNTRY_CODE,
   loading:     true,
 
   async load(userId) {
     if (!userId) { set({ loading: false }); return; }
+
+    const { data: shop } = await supabase
+      .from('shop_config')
+      .select('country, optimizer_disabled')
+      .eq('owner_id', userId)
+      .maybeSingle();
+    const country = shop?.country || DEFAULT_COUNTRY_CODE;
+    const optimizerDisabled = !!shop?.optimizer_disabled;
 
     const { data, error } = await supabase
       .from('subscriptions')
@@ -59,14 +69,16 @@ export const useSubscriptionStore = create((set, get) => ({
       }).select().maybeSingle();
 
       const limits = await fetchPlanLimits('pro'); // trial = pro temporalmente
+      if (optimizerDisabled) limits.can_use_optimizer = false;
 
       set({
         plan: 'free',
         status: 'trialing',
         isPro: true,
         isTrialing: true,
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         limits,
+        country,
         loading: false,
       });
       return;
@@ -77,6 +89,7 @@ export const useSubscriptionStore = create((set, get) => ({
 
     const effectivePlan = isPro ? (data.plan === 'enterprise' ? 'enterprise' : 'pro') : 'free';
     const limits = await fetchPlanLimits(effectivePlan);
+    if (optimizerDisabled) limits.can_use_optimizer = false;
 
     set({
       plan:        data.plan,
@@ -85,6 +98,7 @@ export const useSubscriptionStore = create((set, get) => ({
       isTrialing:  data.status === 'trialing',
       trialEndsAt: data.trial_ends_at ? new Date(data.trial_ends_at) : null,
       limits,
+      country,
       loading:     false,
     });
   },

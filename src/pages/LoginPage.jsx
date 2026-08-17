@@ -1,11 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Eye, EyeOff, AlertCircle, Fingerprint } from 'lucide-react';
 import { useSuperAdminStore } from '../store/superAdminStore';
+import { COUNTRIES, DEFAULT_COUNTRY_CODE } from '../lib/countries';
+import { isPasskeySupported } from '../lib/passkeys';
+
+// Si el usuario no tiene fila en shop_config (ej: el upsert del registro
+// falló porque en ese momento aún no había sesión, por confirmación de
+// email pendiente), la crea ahora a partir de los metadata guardados
+// en el signUp.
+async function ensureShopConfig(user) {
+  const { data: existing } = await supabase
+    .from('shop_config')
+    .select('id')
+    .eq('owner_id', user.id)
+    .maybeSingle();
+
+  if (existing) return;
+
+  const meta = user.user_metadata || {};
+  await supabase.from('shop_config').upsert({
+    owner_id: user.id,
+    shop_name: meta.shop_name || 'Mi Taller',
+    slug: meta.shop_slug || '',
+    country: meta.country || DEFAULT_COUNTRY_CODE,
+  }, { onConflict: 'owner_id' });
+}
 
 async function redirectAfterLogin(user, checkSuperAdmin, navigate) {
+  await ensureShopConfig(user);
   const isSuperAdmin = await checkSuperAdmin(user);
   navigate(isSuperAdmin ? '/super' : '/app');
 }
@@ -24,18 +49,35 @@ function toSlug(str) {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { checkSuperAdmin } = useSuperAdminStore();
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(searchParams.get('register') === '1');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [slugPreview, setSlugPreview] = useState('');
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+
+  useEffect(() => {
+    isPasskeySupported().then(setPasskeySupported);
+  }, []);
+
+  async function handlePasskeyLogin() {
+    setError('');
+    setPasskeyLoading(true);
+    const { data, error: passkeyError } = await supabase.auth.signInWithPasskey();
+    setPasskeyLoading(false);
+    if (passkeyError) { setError(passkeyError.message || 'No se pudo entrar con la huella.'); return; }
+    if (data?.user) await redirectAfterLogin(data.user, checkSuperAdmin, navigate);
+  }
 
   const [form, setForm] = useState({
     email: '',
     password: '',
     fullName: '',
     shopName: '',
+    country: DEFAULT_COUNTRY_CODE,
   });
 
   function setField(key, value) {
@@ -80,19 +122,30 @@ export default function LoginPage() {
         password: form.password,
         options: {
           emailRedirectTo: `${window.location.origin}/app`,
-          data: { full_name: form.fullName, shop_slug: slug, shop_name: form.shopName },
+          data: { full_name: form.fullName, shop_slug: slug, shop_name: form.shopName, country: form.country },
         },
       });
 
       if (signUpError) { setError(signUpError.message); setLoading(false); return; }
 
       if (data.user) {
-        // Crear shop_config con slug
-        await supabase.from('shop_config').upsert({
-          owner_id: data.user.id,
-          shop_name: form.shopName,
-          slug,
-        }, { onConflict: 'owner_id' });
+        // Crear shop_config con slug y país (define moneda y método de pago).
+        // Si todavía no hay sesión (falta confirmar email), esto puede fallar
+        // por RLS — se reintenta en el primer login vía ensureShopConfig.
+        if (data.session) {
+          const { error: shopError } = await supabase.from('shop_config').upsert({
+            owner_id: data.user.id,
+            shop_name: form.shopName,
+            slug,
+            country: form.country,
+          }, { onConflict: 'owner_id' });
+
+          if (shopError) {
+            setError(`Cuenta creada pero hubo un problema al configurar el taller: ${shopError.message}`);
+            setLoading(false);
+            return;
+          }
+        }
 
         setError('');
         // Si Supabase requiere confirmación de correo
@@ -180,6 +233,26 @@ export default function LoginPage() {
               {isRegister ? 'Registrá tu taller y empezá a gestionar' : 'Accedé a tu panel de trabajo'}
             </p>
 
+            {/* Login con huella/Face ID — requiere haber activado una passkey antes */}
+            {!isRegister && passkeySupported && (
+              <>
+                <button
+                  type="button"
+                  onClick={handlePasskeyLogin}
+                  disabled={passkeyLoading}
+                  className="mt-6 w-full flex items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 disabled:opacity-60 text-amber-400 font-semibold px-4 py-3.5 transition"
+                >
+                  <Fingerprint size={18} />
+                  {passkeyLoading ? 'Verificando…' : 'Entrar con huella / Face ID'}
+                </button>
+                <div className="flex items-center gap-3 mt-5 mb-1">
+                  <div className="h-px flex-1 bg-zinc-800" />
+                  <span className="text-xs text-zinc-600 uppercase tracking-wider">o con tu contraseña</span>
+                  <div className="h-px flex-1 bg-zinc-800" />
+                </div>
+              </>
+            )}
+
             <div className="mt-7 space-y-3">
 
               {isRegister && (
@@ -216,6 +289,23 @@ export default function LoginPage() {
                         </motion.p>
                       )}
                     </AnimatePresence>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1.5 ml-1">País del taller</label>
+                    <select
+                      value={form.country}
+                      onChange={(e) => setField('country', e.target.value)}
+                      required
+                      className="w-full rounded-2xl bg-zinc-800 border border-zinc-700 px-4 py-3 text-sm outline-none focus:border-amber-500 transition text-white"
+                    >
+                      {COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 ml-1 text-xs text-zinc-500">
+                      Define la moneda y el método de pago de tu suscripción.
+                    </p>
                   </div>
                 </>
               )}
