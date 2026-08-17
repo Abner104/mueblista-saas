@@ -9,6 +9,15 @@
 alter table public.subscriptions
   alter column trial_ends_at set default (now() + interval '30 days');
 
+-- Recalcula el vencimiento de los trials que ya estaban en curso desde
+-- antes de este cambio (quedaron guardados con la lógica vieja de 14
+-- días). Solo toca cuentas todavía en 'trialing' — no afecta planes ya
+-- pagados ni cancelados.
+update public.subscriptions
+set trial_ends_at = created_at + interval '30 days',
+    updated_at = now()
+where status = 'trialing';
+
 -- ============================================================
 -- Agregar super-admin: abnerdariomedina@gmail.com
 -- ============================================================

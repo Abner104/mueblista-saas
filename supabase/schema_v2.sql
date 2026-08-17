@@ -52,7 +52,7 @@ create table if not exists public.subscriptions (
   mp_external_ref   text unique,    -- referencia externa (owner_id + timestamp)
   current_period_start timestamptz,
   current_period_end   timestamptz,
-  trial_ends_at     timestamptz default (now() + interval '14 days'),
+  trial_ends_at     timestamptz default (now() + interval '30 days'),
   canceled_at       timestamptz,
   created_at        timestamptz default now(),
   updated_at        timestamptz default now()
