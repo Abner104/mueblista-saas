@@ -33,15 +33,21 @@ async function generatePDF(quote, country) {
   doc.text(dateStr, W-14, 12, { align:'right' });
   doc.text(`Estado: ${STATUS_LABELS[quote.status] || quote.status}`, W-14, 20, { align:'right' });
 
+  const isArea = quote.billing_mode === 'area';
+  const dimsLabel = isArea ? 'Superficie' : 'Dimensiones';
+  const dimsValue = isArea
+    ? `${quote.area_width_m} × ${quote.area_height_m} m (${(Number(quote.area_width_m)*Number(quote.area_height_m)).toFixed(2)} m²)`
+    : `${quote.width_mm} × ${quote.height_mm} × ${quote.depth_mm} mm`;
+
   doc.setTextColor(30,30,30);
   doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text('Cliente',14,38);
   doc.setFont('helvetica','normal'); doc.text(quote.clients?.name||'—',14,45);
   doc.setFont('helvetica','bold'); doc.text('Título',70,38);
   doc.setFont('helvetica','normal'); doc.text(quote.title,70,45);
-  doc.setFont('helvetica','bold'); doc.text('Tipo de mueble',140,38);
-  doc.setFont('helvetica','normal'); doc.text(quote.furniture_type,140,45);
-  doc.setFont('helvetica','bold'); doc.text('Dimensiones',14,55);
-  doc.setFont('helvetica','normal'); doc.text(`${quote.width_mm} × ${quote.height_mm} × ${quote.depth_mm} mm`,14,62);
+  doc.setFont('helvetica','bold'); doc.text('Tipo de trabajo',140,38);
+  doc.setFont('helvetica','normal'); doc.text(quote.furniture_type || '—',140,45);
+  doc.setFont('helvetica','bold'); doc.text(dimsLabel,14,55);
+  doc.setFont('helvetica','normal'); doc.text(dimsValue,14,62);
 
   doc.setDrawColor(...OAK); doc.setLineWidth(0.5); doc.line(14,67,W-14,67);
 
@@ -170,14 +176,31 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
           <button onClick={onClose} className={`${tk.sub} hover:${tk.text} transition p-1`}><X size={20}/></button>
         </div>
 
-        {/* Dimensiones */}
+        {/* Dimensiones / Superficie */}
         <div className={`px-6 py-4 grid grid-cols-3 gap-3 border-b ${tk.border}`}>
-          {[['Ancho',quote.width_mm],['Alto',quote.height_mm],['Fondo',quote.depth_mm]].map(([l,v])=>(
-            <div key={l} className={`${tk.card2} rounded-xl p-3 text-center`}>
-              <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>{l}</p>
-              <p className={`text-lg font-bold mt-1 ${tk.text}`}>{v} <span className={`text-xs ${tk.sub}`}>mm</span></p>
-            </div>
-          ))}
+          {quote.billing_mode === 'area' ? (
+            <>
+              <div className={`${tk.card2} rounded-xl p-3 text-center`}>
+                <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>Ancho</p>
+                <p className={`text-lg font-bold mt-1 ${tk.text}`}>{quote.area_width_m} <span className={`text-xs ${tk.sub}`}>m</span></p>
+              </div>
+              <div className={`${tk.card2} rounded-xl p-3 text-center`}>
+                <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>Alto</p>
+                <p className={`text-lg font-bold mt-1 ${tk.text}`}>{quote.area_height_m} <span className={`text-xs ${tk.sub}`}>m</span></p>
+              </div>
+              <div className={`${tk.card2} rounded-xl p-3 text-center`}>
+                <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>Superficie</p>
+                <p className={`text-lg font-bold mt-1 ${tk.text}`}>{(Number(quote.area_width_m)*Number(quote.area_height_m)).toFixed(2)} <span className={`text-xs ${tk.sub}`}>m²</span></p>
+              </div>
+            </>
+          ) : (
+            [['Ancho',quote.width_mm],['Alto',quote.height_mm],['Fondo',quote.depth_mm]].map(([l,v])=>(
+              <div key={l} className={`${tk.card2} rounded-xl p-3 text-center`}>
+                <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>{l}</p>
+                <p className={`text-lg font-bold mt-1 ${tk.text}`}>{v} <span className={`text-xs ${tk.sub}`}>mm</span></p>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Materiales */}
@@ -305,8 +328,10 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
           {quote.clients?.phone && (
             <a href={`https://wa.me/${quote.clients.phone.replace(/\D/g,'')}?text=${encodeURIComponent(
               `Hola ${quote.clients.name}, te envío la cotización para *${quote.title}*.\n\n` +
-              `• Tipo: ${quote.furniture_type}\n` +
-              `• Dimensiones: ${quote.width_mm}×${quote.height_mm}×${quote.depth_mm}mm\n` +
+              `• Tipo: ${quote.furniture_type || '—'}\n` +
+              (quote.billing_mode === 'area'
+                ? `• Superficie: ${quote.area_width_m}×${quote.area_height_m}m (${(Number(quote.area_width_m)*Number(quote.area_height_m)).toFixed(2)} m²)\n`
+                : `• Dimensiones: ${quote.width_mm}×${quote.height_mm}×${quote.depth_mm}mm\n`) +
               `• Total: ${formatCurrency(quote.total, country)}\n\n` +
               `Cualquier consulta estoy disponible.`)}`}
               target="_blank" rel="noopener noreferrer"

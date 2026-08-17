@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, ChevronDown, Search, FileText, Package } from 'lucide-react';
+import { Trash2, ChevronDown, Search, FileText, Package, Ruler } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { calculateQuote } from '../../lib/quoteCalculator';
 import { useThemeStore } from '../../store/themeStore';
@@ -8,7 +8,11 @@ import { formatCurrency } from '../../lib/formatters';
 import { useShopCountry } from '../../lib/useShopCountry';
 import CurrencyInput from '../shared/CurrencyInput';
 
-const FURNITURE_TYPES = ['Closet', 'Cocina', 'Baño', 'Biblioteca', 'Escritorio', 'Comedor', 'Sala', 'Oficina', 'Otro'];
+// Sugerencias — el campo es de texto libre, esto solo autocompleta.
+const FURNITURE_TYPE_SUGGESTIONS = [
+  'Closet', 'Cocina', 'Baño', 'Biblioteca', 'Escritorio', 'Comedor', 'Sala', 'Oficina',
+  'Cielo raso', 'Pared PVC', 'Desayunador', 'Revestimiento',
+];
 
 export default function QuoteForm({ onSaved, prefill }) {
   const { theme } = useThemeStore();
@@ -68,6 +72,10 @@ export default function QuoteForm({ onSaved, prefill }) {
     labor_cost: 0,
     extra_cost: 0,
     margin_percent: 30,
+    billing_mode: 'fixed', // 'fixed' | 'area'
+    area_width_m: '',
+    area_height_m: '',
+    area_price_m2: '',
   });
   const [selectedItems, setSelectedItems] = useState([]);
 
@@ -108,6 +116,10 @@ export default function QuoteForm({ onSaved, prefill }) {
     laborCost: form.labor_cost,
     extraCost: form.extra_cost,
     marginPercent: form.margin_percent,
+    billingMode: form.billing_mode,
+    areaWidthM: form.area_width_m,
+    areaHeightM: form.area_height_m,
+    areaPriceM2: form.area_price_m2,
   });
 
   function addMaterial(mat) {
@@ -153,17 +165,22 @@ export default function QuoteForm({ onSaved, prefill }) {
     const { data: authData } = await supabase.auth.getUser();
     const owner_id = authData.user.id;
 
+    const isArea = form.billing_mode === 'area';
+
     const { data: quote, error } = await supabase
       .from('quotes')
       .insert({
         ...form,
         owner_id,
-        width_mm: Number(form.width_mm),
-        height_mm: Number(form.height_mm),
-        depth_mm: Number(form.depth_mm),
-        labor_cost: Number(form.labor_cost),
-        extra_cost: Number(form.extra_cost),
+        width_mm: isArea ? null : Number(form.width_mm),
+        height_mm: isArea ? null : Number(form.height_mm),
+        depth_mm: isArea ? null : Number(form.depth_mm),
+        labor_cost: Number(form.labor_cost || 0),
+        extra_cost: Number(form.extra_cost || 0),
         margin_percent: Number(form.margin_percent),
+        area_width_m: isArea ? Number(form.area_width_m || 0) : null,
+        area_height_m: isArea ? Number(form.area_height_m || 0) : null,
+        area_price_m2: isArea ? Number(form.area_price_m2 || 0) : null,
         subtotal: totals.subtotal,
         total: totals.total,
       })
@@ -178,7 +195,12 @@ export default function QuoteForm({ onSaved, prefill }) {
     }
 
     setSaving(false);
-    setForm({ client_id: '', title: '', furniture_type: 'Closet', width_mm: 1200, height_mm: 2200, depth_mm: 600, labor_cost: 0, extra_cost: 0, margin_percent: 30 });
+    setForm({
+      client_id: '', title: '', furniture_type: 'Closet',
+      width_mm: 1200, height_mm: 2200, depth_mm: 600,
+      labor_cost: 0, extra_cost: 0, margin_percent: 30,
+      billing_mode: 'fixed', area_width_m: '', area_height_m: '', area_price_m2: '',
+    });
     setSelectedItems([]);
     if (onSaved) onSaved();
   }
@@ -237,28 +259,81 @@ export default function QuoteForm({ onSaved, prefill }) {
         </div>
       </div>
 
-      {/* Tipo + Dimensiones */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Tipo de mueble</label>
-          <div className="relative">
-            <select
-              value={form.furniture_type}
-              onChange={(e) => setField('furniture_type', e.target.value)}
-              className={`${inputBase} appearance-none`}
-            >
-              {FURNITURE_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-            <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${tk.label}`} />
-          </div>
-        </div>
-        {[['Ancho (mm)', 'width_mm'], ['Alto (mm)', 'height_mm'], ['Fondo (mm)', 'depth_mm']].map(([label, key]) => (
-          <div key={key}>
-            <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>{label}</label>
-            <input type="number" value={form[key]} onChange={(e) => setField(key, e.target.value)} className={inputBase} />
-          </div>
-        ))}
+      {/* Tipo de trabajo — texto libre con sugerencias */}
+      <div>
+        <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Tipo de trabajo</label>
+        <input
+          type="text"
+          list="furniture-type-suggestions"
+          value={form.furniture_type}
+          onChange={(e) => setField('furniture_type', e.target.value)}
+          placeholder="Ej: Cielo raso, Closet, Pared PVC..."
+          className={inputBase}
+        />
+        <datalist id="furniture-type-suggestions">
+          {FURNITURE_TYPE_SUGGESTIONS.map((t) => <option key={t} value={t} />)}
+        </datalist>
       </div>
+
+      {/* Modo de cobro */}
+      <div>
+        <label className={`block text-xs mb-1.5 uppercase tracking-wider ${tk.label}`}>Cómo se cobra este trabajo</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setField('billing_mode', 'fixed')}
+            className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition ${
+              form.billing_mode === 'fixed' ? 'border-amber-500 bg-amber-500/10 text-amber-500' : `${tk.section} ${tk.label}`
+            }`}
+          >
+            <Package size={14} /> Mueble a medida
+          </button>
+          <button
+            type="button"
+            onClick={() => setField('billing_mode', 'area')}
+            className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition ${
+              form.billing_mode === 'area' ? 'border-amber-500 bg-amber-500/10 text-amber-500' : `${tk.section} ${tk.label}`
+            }`}
+          >
+            <Ruler size={14} /> Por metro cuadrado
+          </button>
+        </div>
+      </div>
+
+      {/* Dimensiones — según el modo de cobro */}
+      {form.billing_mode === 'fixed' ? (
+        <div className="grid grid-cols-3 gap-4">
+          {[['Ancho (mm)', 'width_mm'], ['Alto (mm)', 'height_mm'], ['Fondo (mm)', 'depth_mm']].map(([label, key]) => (
+            <div key={key}>
+              <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>{label}</label>
+              <input type="number" value={form[key]} onChange={(e) => setField(key, e.target.value)} className={inputBase} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Ancho (m)</label>
+            <input type="number" min="0" step="0.01" value={form.area_width_m}
+              onChange={(e) => setField('area_width_m', e.target.value)} placeholder="0" className={inputBase} />
+          </div>
+          <div>
+            <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Alto (m)</label>
+            <input type="number" min="0" step="0.01" value={form.area_height_m}
+              onChange={(e) => setField('area_height_m', e.target.value)} placeholder="0" className={inputBase} />
+          </div>
+          <div>
+            <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Precio por m²</label>
+            <CurrencyInput allowDecimals value={form.area_price_m2}
+              onChange={(v) => setField('area_price_m2', v)} placeholder="0" className={inputBase} />
+          </div>
+          {totals.areaM2 > 0 && (
+            <p className={`col-span-3 text-xs ${tk.label}`}>
+              Superficie: <span className="font-medium text-amber-500">{totals.areaM2} m²</span> · Cargo por m²: <span className="font-medium text-amber-500">{formatCurrency(totals.areaCost, country)}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Materiales */}
       <div className={`rounded-2xl border ${tk.section} p-4 space-y-3`}>
@@ -365,7 +440,9 @@ export default function QuoteForm({ onSaved, prefill }) {
       {/* Costos adicionales + Margen */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          ['Mano de obra ($)', 'labor_cost', true],
+          // En modo 'area' no se pide mano de obra — ese cargo ya lo
+          // cubre ancho×alto×precio por m².
+          ...(form.billing_mode === 'fixed' ? [['Mano de obra ($)', 'labor_cost', true]] : []),
           ['Costos extra ($)', 'extra_cost', true],
           ['Margen de ganancia (%)', 'margin_percent', false],
         ].map(([label, key, isMoney]) => (
@@ -394,7 +471,9 @@ export default function QuoteForm({ onSaved, prefill }) {
         <h3 className="text-xs uppercase tracking-wider text-amber-500/70 mb-3">Resumen</h3>
         {[
           ['Materiales', totals.materialsSubtotal],
-          ['Mano de obra', Number(form.labor_cost)],
+          form.billing_mode === 'area'
+            ? [`Instalación (${totals.areaM2} m²)`, totals.areaCost]
+            : ['Mano de obra', Number(form.labor_cost)],
           ['Costos extra', Number(form.extra_cost)],
         ].map(([label, val]) => (
           <div key={label} className={`flex justify-between text-sm ${tk.sumRow}`}>

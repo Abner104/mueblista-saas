@@ -100,12 +100,14 @@ function OrderCard({ sale, onUpdate, isDark, country }) {
         </span>
       </div>
 
-      {/* Dimensiones */}
+      {/* Dimensiones / Superficie */}
       {sale.quotes && (
         <div className={`rounded-xl border p-3 text-xs ${tk.detail}`}>
-          <p className={`font-medium mb-1 ${tk.text}`}>{sale.quotes.furniture_type}</p>
+          <p className={`font-medium mb-1 ${tk.text}`}>{sale.quotes.furniture_type || '—'}</p>
           <p className={tk.sub}>
-            {sale.quotes.width_mm} × {sale.quotes.height_mm} × {sale.quotes.depth_mm} mm
+            {sale.quotes.billing_mode === 'area'
+              ? `${sale.quotes.area_width_m} × ${sale.quotes.area_height_m} m (${(Number(sale.quotes.area_width_m)*Number(sale.quotes.area_height_m)).toFixed(2)} m²)`
+              : `${sale.quotes.width_mm} × ${sale.quotes.height_mm} × ${sale.quotes.depth_mm} mm`}
           </p>
         </div>
       )}
@@ -205,7 +207,7 @@ export default function MaestroPage() {
     if (!worker?.id) {
       const { data } = await supabase
         .from('sales')
-        .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*))')
+        .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, billing_mode, area_width_m, area_height_m, quote_items(*))')
         .order('created_at', { ascending: false });
       setOrders(data || []);
       setLoading(false);
@@ -216,10 +218,10 @@ export default function MaestroPage() {
     // + fallback a assigned_worker_id para órdenes creadas antes de esa tabla.
     const [{ data: viaAssignments }, { data: viaLegacy }] = await Promise.all([
       supabase.from('order_assignments')
-        .select('sales(*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*)))')
+        .select('sales(*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, billing_mode, area_width_m, area_height_m, quote_items(*)))')
         .eq('worker_id', worker.id),
       supabase.from('sales')
-        .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*))')
+        .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, billing_mode, area_width_m, area_height_m, quote_items(*))')
         .eq('assigned_worker_id', worker.id),
     ]);
 
