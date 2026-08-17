@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
+import { formatCurrency } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 const ROLES_DISPLAY = ['Maestro carpintero', 'Ayudante', 'Vendedor/a', 'Diseñador/a', 'Instalador', 'Administrativo', 'Otro'];
 
@@ -46,6 +48,57 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
   const SelCls   = `w-full appearance-none rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:border-amber-500 ${tk.sel}`;
   const Label    = ({ children }) => <label className={`block text-xs uppercase tracking-wider mb-1 ${tk.label}`}>{children}</label>;
 
+  // Crea las credenciales de acceso para un trabajador ya guardado (workerId conocido).
+  // Se usa tanto al crear (encadenado tras el insert) como al editar.
+  async function createAccess(workerId, workerName) {
+    if (!credEmail) { setAccessError('Ingresá un correo'); return false; }
+    if (!credPass)  { setAccessError('Ingresá una contraseña'); return false; }
+    if (credPass.length < 6) { setAccessError('La contraseña debe tener al menos 6 caracteres'); return false; }
+
+    setCreatingAccess(true);
+    setAccessError('');
+
+    // Crear cuenta del trabajador con signUp usando un cliente separado.
+    // persistSession/autoRefreshToken en false es crítico: por defecto
+    // Supabase guarda la sesión en localStorage bajo la misma clave que
+    // el cliente principal, así que un signUp acá pisaría la sesión del
+    // dueño logueado con la del trabajador recién creado.
+    const { createClient } = await import('@supabase/supabase-js');
+    const tempClient = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_ANON_KEY,
+      { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+    );
+
+    const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
+      email: credEmail,
+      password: credPass,
+      options: {
+        data: { worker_id: workerId, worker_name: workerName, role: 'worker' },
+        emailRedirectTo: `${window.location.origin}/app`,
+      },
+    });
+
+    if (signUpError) {
+      setCreatingAccess(false);
+      setAccessError(signUpError.message);
+      return false;
+    }
+
+    // Vincular el user_id al worker en la tabla
+    if (signUpData.user) {
+      await supabase
+        .from('workers')
+        .update({ invited_user_id: signUpData.user.id, email: credEmail })
+        .eq('id', workerId);
+    }
+
+    setCreatingAccess(false);
+    setAccessCreated(true);
+    setCredPass('');
+    return true;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -55,59 +108,39 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
       phone: form.phone, email: form.email, status: form.status,
       notes: form.notes, commission_pct: Number(form.commission_pct || 0),
     };
+
     if (isEdit) {
       await supabase.from('workers').update(payload).eq('id', worker.id);
-    } else {
-      await supabase.from('workers').insert({ owner_id: user.id, ...payload });
+      setLoading(false);
+      onSaved();
+      onClose();
+      return;
     }
+
+    // Nuevo trabajador — si ya cargó email + contraseña, crea el acceso
+    // en el mismo paso en vez de obligar a reabrir el modal para editarlo.
+    const { data: newWorker, error: insertError } = await supabase
+      .from('workers').insert({ owner_id: user.id, ...payload }).select().single();
+
+    if (insertError) {
+      setLoading(false);
+      setAccessError(insertError.message);
+      return;
+    }
+
+    if (credEmail && credPass) {
+      const ok = await createAccess(newWorker.id, form.name);
+      if (!ok) { setLoading(false); return; } // deja el modal abierto para corregir el error
+    }
+
     setLoading(false);
     onSaved();
     onClose();
   }
 
   async function handleCreateAccess() {
-    if (!credEmail) { setAccessError('Ingresá un correo'); return; }
-    if (!credPass)  { setAccessError('Ingresá una contraseña'); return; }
-    if (credPass.length < 6) { setAccessError('La contraseña debe tener al menos 6 caracteres'); return; }
     if (!isEdit) { setAccessError('Guardá el trabajador primero'); return; }
-
-    setCreatingAccess(true);
-    setAccessError('');
-
-    // Crear cuenta del trabajador con signUp
-    // Usamos un cliente separado para no cerrar la sesión del dueño
-    const { createClient } = await import('@supabase/supabase-js');
-    const tempClient = createClient(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY,
-    );
-
-    const { data: signUpData, error: signUpError } = await tempClient.auth.signUp({
-      email: credEmail,
-      password: credPass,
-      options: {
-        data: { worker_id: worker.id, worker_name: form.name, role: 'worker' },
-        emailRedirectTo: `${window.location.origin}/app`,
-      },
-    });
-
-    if (signUpError) {
-      setCreatingAccess(false);
-      setAccessError(signUpError.message);
-      return;
-    }
-
-    // Vincular el user_id al worker en la tabla
-    if (signUpData.user) {
-      await supabase
-        .from('workers')
-        .update({ invited_user_id: signUpData.user.id, email: credEmail })
-        .eq('id', worker.id);
-    }
-
-    setCreatingAccess(false);
-    setAccessCreated(true);
-    setCredPass('');
+    await createAccess(worker.id, form.name);
     onSaved();
   }
 
@@ -196,7 +229,7 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
           <div>
             <Label>Teléfono</Label>
             <input value={form.phone} onChange={e => setF('phone', e.target.value)}
-              placeholder="+56 9 1234 5678" className={InputCls} />
+              placeholder="+58 412 1234567" className={InputCls} />
           </div>
 
           {/* Notas */}
@@ -208,71 +241,69 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
               className={`${InputCls} resize-none`} />
           </div>
 
-          {/* Guardar trabajador */}
-          <button disabled={loading}
-            className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-2xl py-3 transition text-sm">
-            {loading ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Agregar trabajador'}
-          </button>
-
           {/* ── Acceso al sistema ── */}
-          {isEdit && (
-            <div className={`rounded-2xl border p-4 space-y-3 ${isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-stone-200 bg-stone-50'}`}>
-              <div className="flex items-center gap-2">
-                <KeyRound size={14} className="text-amber-400 shrink-0" />
-                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-stone-900'}`}>
-                  {accessCreated ? 'Acceso al sistema activo' : 'Crear acceso al sistema'}
-                </p>
-                {accessCreated && <CheckCircle2 size={14} className="text-emerald-400" />}
-              </div>
+          <div className={`rounded-2xl border p-4 space-y-3 ${isDark ? 'border-zinc-700 bg-zinc-800/50' : 'border-stone-200 bg-stone-50'}`}>
+            <div className="flex items-center gap-2">
+              <KeyRound size={14} className="text-amber-400 shrink-0" />
+              <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-stone-900'}`}>
+                {accessCreated ? 'Acceso al sistema activo' : 'Acceso al sistema'}
+              </p>
+              {accessCreated && <CheckCircle2 size={14} className="text-emerald-400" />}
+            </div>
 
-              {accessCreated ? (
-                <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
-                  Este trabajador ya tiene credenciales. Para cambiar la contraseña, creá un nuevo acceso con el mismo correo.
+            {accessCreated ? (
+              <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>
+                Este trabajador ya tiene credenciales. Para cambiar la contraseña, creá un nuevo acceso con el mismo correo.
+              </p>
+            ) : (
+              <>
+                <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>
+                  {isEdit
+                    ? 'El trabajador podrá ingresar con estas credenciales desde la página de login.'
+                    : 'Opcional: completá esto para crear el acceso junto con el trabajador, en un solo paso.'}
                 </p>
-              ) : (
-                <>
-                  <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-stone-400'}`}>
-                    El trabajador podrá ingresar con estas credenciales desde la página de login.
-                  </p>
-                  <div className="space-y-2">
-                    <div>
-                      <label className={`block text-xs mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Correo</label>
-                      <div className="relative">
-                        <Mail size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
-                        <input
-                          type="email"
-                          value={credEmail}
-                          onChange={e => { setCredEmail(e.target.value); setAccessError(''); }}
-                          placeholder="trabajador@correo.com"
-                          className={`${InputCls} pl-8`}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={`block text-xs mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Contraseña</label>
-                      <div className="relative">
-                        <KeyRound size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
-                        <input
-                          type={showPass ? 'text' : 'password'}
-                          value={credPass}
-                          onChange={e => { setCredPass(e.target.value); setAccessError(''); }}
-                          placeholder="Mínimo 6 caracteres"
-                          className={`${InputCls} pl-8 pr-10`}
-                        />
-                        <button type="button" onClick={() => setShowPass(v => !v)}
-                          className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'} transition`}>
-                          {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                      </div>
+                <div className="space-y-2">
+                  <div>
+                    <label className={`block text-xs mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Correo</label>
+                    <div className="relative">
+                      <Mail size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
+                      <input
+                        type="email"
+                        value={credEmail}
+                        onChange={e => { setCredEmail(e.target.value); setAccessError(''); }}
+                        placeholder="trabajador@correo.com"
+                        className={`${InputCls} pl-8`}
+                      />
                     </div>
                   </div>
-
-                  {accessError && (
-                    <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
-                      <AlertCircle size={12} className="shrink-0" /> {accessError}
+                  <div>
+                    <label className={`block text-xs mb-1 ${isDark ? 'text-zinc-400' : 'text-stone-500'}`}>Contraseña</label>
+                    <div className="relative">
+                      <KeyRound size={13} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500' : 'text-stone-400'}`} />
+                      <input
+                        type={showPass ? 'text' : 'password'}
+                        value={credPass}
+                        onChange={e => { setCredPass(e.target.value); setAccessError(''); }}
+                        placeholder="Mínimo 6 caracteres"
+                        className={`${InputCls} pl-8 pr-10`}
+                      />
+                      <button type="button" onClick={() => setShowPass(v => !v)}
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-stone-400 hover:text-stone-600'} transition`}>
+                        {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
                     </div>
-                  )}
+                  </div>
+                </div>
 
+                {accessError && (
+                  <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+                    <AlertCircle size={12} className="shrink-0" /> {accessError}
+                  </div>
+                )}
+
+                {/* En edición, un botón dedicado (el trabajador ya existe).
+                    En creación, el acceso se crea junto al guardar el formulario. */}
+                {isEdit && (
                   <button
                     type="button"
                     onClick={handleCreateAccess}
@@ -284,15 +315,18 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
                       : <><KeyRound size={14} /> Crear acceso</>
                     }
                   </button>
-                </>
-              )}
-            </div>
-          )}
-          {!isEdit && (
-            <p className={`text-xs text-center ${isDark ? 'text-zinc-600' : 'text-stone-400'}`}>
-              Después de guardar, podrás crear las credenciales de acceso.
-            </p>
-          )}
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Guardar trabajador */}
+          <button disabled={loading}
+            className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-2xl py-3 transition text-sm">
+            {loading
+              ? (credEmail && credPass && !isEdit ? 'Creando trabajador y acceso…' : 'Guardando…')
+              : isEdit ? 'Guardar cambios' : 'Agregar trabajador'}
+          </button>
         </form>
       </motion.div>
     </motion.div>
@@ -300,7 +334,7 @@ function WorkerModal({ worker, onClose, onSaved, isDark }) {
 }
 
 // ── Tarjeta de trabajador ─────────────────────────────────────────
-function WorkerCard({ worker, onEdit, onDelete, commissions, isDark }) {
+function WorkerCard({ worker, onEdit, onDelete, commissions, isDark, country }) {
   const tk = isDark
     ? { card: 'bg-zinc-900 border-zinc-800', text: 'text-white', sub: 'text-zinc-400' }
     : { card: 'bg-white border-stone-200',   text: 'text-stone-900', sub: 'text-stone-500' };
@@ -367,7 +401,7 @@ function WorkerCard({ worker, onEdit, onDelete, commissions, isDark }) {
         <div className={`rounded-xl p-3 flex items-center justify-between ${isDark ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-amber-50 border border-amber-200'}`}>
           <div>
             <p className={`text-[10px] uppercase tracking-wider text-amber-600`}>Comisión acumulada</p>
-            <p className="text-lg font-bold text-amber-500">${commission.toLocaleString('es-AR')}</p>
+            <p className="text-lg font-bold text-amber-500">{formatCurrency(commission, country)}</p>
           </div>
           <div className="text-right">
             <p className={`text-[10px] ${tk.sub}`}>Tasa</p>
@@ -410,6 +444,7 @@ function WorkerCard({ worker, onEdit, onDelete, commissions, isDark }) {
 export default function WorkersPage() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const country = useShopCountry();
 
   const [workers,     setWorkers]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -463,7 +498,7 @@ export default function WorkersPage() {
     { label: 'Total equipo',   value: workers.length,                                      icon: Users,       color: 'text-blue-400',    bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
     { label: 'Activos',        value: workers.filter(w => w.status === 'active').length,    icon: CheckCircle2,color: 'text-emerald-400', bg: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
     { label: 'Maestros',       value: workers.filter(w => w.worker_role === 'maestro').length, icon: HardHat,  color: 'text-amber-400',   bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50' },
-    { label: 'Comisiones pend.',value: `$${totalComisiones.toLocaleString('es-AR')}`,       icon: DollarSign,  color: 'text-violet-400',  bg: isDark ? 'bg-violet-500/10' : 'bg-violet-50', raw: true },
+    { label: 'Comisiones pend.',value: formatCurrency(totalComisiones, country),       icon: DollarSign,  color: 'text-violet-400',  bg: isDark ? 'bg-violet-500/10' : 'bg-violet-50', raw: true },
   ];
 
   return (
@@ -525,7 +560,7 @@ export default function WorkersPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <AnimatePresence>
             {filtered.map(worker => (
-              <WorkerCard key={worker.id} worker={worker} onEdit={openEdit} onDelete={handleDelete} commissions={commissions} isDark={isDark} />
+              <WorkerCard key={worker.id} worker={worker} onEdit={openEdit} onDelete={handleDelete} commissions={commissions} isDark={isDark} country={country} />
             ))}
           </AnimatePresence>
         </div>

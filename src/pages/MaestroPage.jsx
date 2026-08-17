@@ -3,12 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   HardHat, ClipboardList, Wrench, CheckCircle2,
   ChevronRight, Package, LogOut, Sun, Moon,
+  ListChecks, Square, ChevronDown, Settings,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useRoleStore } from '../store/roleStore';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { useNavigate } from 'react-router-dom';
+import SettingsModal from '../components/shared/SettingsModal';
+import { formatDate } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 const PROD_STATUSES = [
   { value: 'confirmed',     label: 'Confirmada',    next: 'in_production', nextLabel: 'Iniciar producción', color: 'bg-blue-500/20 text-blue-300',    lcolor: 'bg-blue-100 text-blue-700' },
@@ -17,8 +21,49 @@ const PROD_STATUSES = [
   { value: 'paid',          label: 'Pagada',        next: null,            nextLabel: null,                 color: 'bg-emerald-500/20 text-emerald-300',lcolor: 'bg-emerald-100 text-emerald-700' },
 ];
 
-function OrderCard({ sale, onUpdate, isDark }) {
+function TaskChecklistCompact({ saleId, isDark }) {
+  const [tasks, setTasks] = useState(null);
+
+  const tk = isDark
+    ? { row: 'border-zinc-800', sub: 'text-zinc-500', text: 'text-white' }
+    : { row: 'border-stone-100', sub: 'text-stone-500', text: 'text-stone-900' };
+
+  useEffect(() => {
+    supabase.from('order_tasks').select('*').eq('sale_id', saleId).order('sort_order')
+      .then(({ data }) => setTasks(data || []));
+  }, [saleId]);
+
+  async function toggleTask(task) {
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t));
+    await supabase.from('order_tasks')
+      .update({ done: !task.done, done_at: !task.done ? new Date().toISOString() : null })
+      .eq('id', task.id);
+  }
+
+  if (tasks === null) return <p className={`text-xs ${tk.sub} py-2`}>Cargando…</p>;
+  if (tasks.length === 0) return <p className={`text-xs ${tk.sub} py-2`}>Sin tareas cargadas para esta orden.</p>;
+
+  return (
+    <div className="space-y-1">
+      {tasks.map(task => (
+        <button
+          key={task.id}
+          onClick={() => toggleTask(task)}
+          className={`flex items-center gap-2.5 py-2 w-full text-left border-b ${tk.row} last:border-b-0`}
+        >
+          {task.done
+            ? <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
+            : <Square size={18} className={`${tk.sub} shrink-0`} />}
+          <span className={`text-sm ${task.done ? `line-through ${tk.sub}` : tk.text}`}>{task.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function OrderCard({ sale, onUpdate, isDark, country }) {
   const [updating, setUpdating] = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
   const statusInfo = PROD_STATUSES.find(s => s.value === sale.status) || PROD_STATUSES[0];
 
   const tk = isDark
@@ -82,9 +127,33 @@ function OrderCard({ sale, onUpdate, isDark }) {
       {/* Fecha entrega */}
       {sale.due_date && (
         <p className={`text-xs ${tk.sub}`}>
-          Entrega: <span className={`font-medium ${tk.text}`}>{new Date(sale.due_date).toLocaleDateString('es-AR')}</span>
+          Entrega: <span className={`font-medium ${tk.text}`}>{formatDate(sale.due_date, country, { day: '2-digit', month: 'short', year: 'numeric' })}</span>
         </p>
       )}
+
+      {/* Checklist de tareas */}
+      <div className={`rounded-xl border p-3 ${tk.detail}`}>
+        <button
+          onClick={() => setShowChecklist(v => !v)}
+          className={`flex items-center gap-2 text-xs font-bold w-full ${tk.text}`}
+        >
+          <ListChecks size={14} className="text-amber-500" />
+          Checklist de tareas
+          <ChevronDown size={12} className={`ml-auto transition-transform ${tk.sub} ${showChecklist ? 'rotate-180' : ''}`} />
+        </button>
+        <AnimatePresence>
+          {showChecklist && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="pt-2">
+                <TaskChecklistCompact saleId={sale.id} isDark={isDark} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* Botón avanzar estado */}
       {statusInfo.next && (
@@ -113,6 +182,7 @@ function OrderCard({ sale, onUpdate, isDark }) {
 
 export default function MaestroPage() {
   const { worker } = useRoleStore();
+  const country = useShopCountry();
   const logout     = useAuthStore(s => s.logout);
   const { theme, toggle } = useThemeStore();
   const isDark = theme === 'dark';
@@ -121,6 +191,7 @@ export default function MaestroPage() {
   const [orders, setOrders]       = useState([]);
   const [loading, setLoading]     = useState(true);
   const [filterStatus, setFilter] = useState('active'); // 'active' | 'done'
+  const [showSettings, setShowSettings] = useState(false);
 
   const tk = isDark
     ? { bg: 'bg-zinc-950', header: 'bg-zinc-950 border-zinc-800', text: 'text-white', sub: 'text-zinc-400', tab: 'bg-zinc-900 border-zinc-800 text-zinc-400', tabA: 'bg-white text-black', toggle: 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' }
@@ -130,18 +201,34 @@ export default function MaestroPage() {
 
   async function fetchOrders() {
     setLoading(true);
-    let query = supabase
-      .from('sales')
-      .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*))')
-      .order('created_at', { ascending: false });
 
-    // Si está asignado a este maestro específicamente
-    if (worker?.id) {
-      query = query.eq('assigned_worker_id', worker.id);
+    if (!worker?.id) {
+      const { data } = await supabase
+        .from('sales')
+        .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*))')
+        .order('created_at', { ascending: false });
+      setOrders(data || []);
+      setLoading(false);
+      return;
     }
 
-    const { data } = await query;
-    setOrders(data || []);
+    // Órdenes donde este trabajador está en el equipo asignado (order_assignments)
+    // + fallback a assigned_worker_id para órdenes creadas antes de esa tabla.
+    const [{ data: viaAssignments }, { data: viaLegacy }] = await Promise.all([
+      supabase.from('order_assignments')
+        .select('sales(*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*)))')
+        .eq('worker_id', worker.id),
+      supabase.from('sales')
+        .select('*, clients(name), quotes(title, furniture_type, width_mm, height_mm, depth_mm, quote_items(*))')
+        .eq('assigned_worker_id', worker.id),
+    ]);
+
+    const fromAssignments = (viaAssignments || []).map(a => a.sales).filter(Boolean);
+    const merged = new Map();
+    for (const s of [...fromAssignments, ...(viaLegacy || [])]) merged.set(s.id, s);
+
+    const list = [...merged.values()].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    setOrders(list);
     setLoading(false);
   }
 
@@ -169,6 +256,9 @@ export default function MaestroPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowSettings(true)} className={`rounded-xl p-2 transition ${tk.toggle}`}>
+            <Settings size={16} />
+          </button>
           <button onClick={toggle} className={`rounded-xl p-2 transition ${tk.toggle}`}>
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -177,6 +267,8 @@ export default function MaestroPage() {
           </button>
         </div>
       </header>
+
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} isDark={isDark} />
 
       <div className="p-4 space-y-4 max-w-2xl mx-auto">
 
@@ -224,7 +316,7 @@ export default function MaestroPage() {
         ) : (
           <AnimatePresence>
             {shown.map(sale => (
-              <OrderCard key={sale.id} sale={sale} onUpdate={fetchOrders} isDark={isDark} />
+              <OrderCard key={sale.id} sale={sale} onUpdate={fetchOrders} isDark={isDark} country={country} />
             ))}
           </AnimatePresence>
         )}

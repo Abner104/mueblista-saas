@@ -3,9 +3,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ClipboardList, Plus, ChevronDown, X,
   Truck, Wrench, DollarSign, HardHat,
+  CheckSquare, Square, ListChecks, Users, Trash2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
+import { formatCurrency, formatDate } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
+
+// Etapas del checklist — cubren instalación en sitio (PVC, drywall) además
+// de fabricación de mueble a medida.
+const TASK_STAGES = [
+  { value: 'medicion',     label: 'Medición' },
+  { value: 'materiales',   label: 'Materiales' },
+  { value: 'instalacion',  label: 'Instalación' },
+  { value: 'entrega',      label: 'Entrega' },
+  { value: 'otro',         label: 'Otro' },
+];
+
+const DEFAULT_TASKS = [
+  { stage: 'medicion',    label: 'Visita técnica / medición en sitio' },
+  { stage: 'materiales',  label: 'Materiales reservados' },
+  { stage: 'materiales',  label: 'Materiales en obra' },
+  { stage: 'instalacion', label: 'Instalación completada' },
+  { stage: 'entrega',     label: 'Entrega y conformidad del cliente' },
+];
 
 const PROD_STATUSES = [
   { value: 'pending',       label: 'Pendiente',     color: 'bg-zinc-500/20 text-zinc-300',      lcolor: 'bg-zinc-100 text-zinc-600' },
@@ -21,12 +42,13 @@ const PAY_STATUSES = [
 ];
 
 // ── Modal nueva orden ─────────────────────────────────────────────
-function NewOrderModal({ onClose, onCreated, isDark, maestros }) {
+function NewOrderModal({ onClose, onCreated, isDark, maestros, country }) {
   const [quotes,        setQuotes]        = useState([]);
   const [selectedQuote, setSelectedQuote] = useState('');
   const [amount,        setAmount]        = useState('');
   const [dueDate,       setDueDate]       = useState('');
-  const [workerId,      setWorkerId]      = useState('');
+  const [workerIds,     setWorkerIds]     = useState([]); // asignación múltiple
+  const [useDefaultTasks, setUseDefaultTasks] = useState(true);
   const [saving,        setSaving]        = useState(false);
 
   const tk = isDark
@@ -34,8 +56,11 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros }) {
     : { bg: 'bg-white',    border: 'border-stone-200', input: 'bg-stone-50 border-stone-300 text-stone-900', sub: 'text-stone-500', text: 'text-stone-900' };
 
   useEffect(() => {
-    supabase.from('quotes').select('id, title, total, clients(name)')
-      .in('status', ['approved', 'sent', 'draft'])
+    // "approved" queda afuera a propósito: aprobar una cotización ya crea
+    // su orden automáticamente (QuotesPage.jsx). Ofrecerla acá también
+    // llevaba a crear una segunda orden duplicada para el mismo trabajo.
+    supabase.from('quotes').select('id, title, total, client_id, clients(name)')
+      .in('status', ['sent', 'draft'])
       .order('created_at', { ascending: false })
       .then(({ data }) => setQuotes(data || []));
   }, []);
@@ -46,20 +71,41 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros }) {
     if (q) setAmount(q.total);
   }
 
+  function toggleWorker(id) {
+    setWorkerIds(prev => prev.includes(id) ? prev.filter(w => w !== id) : [...prev, id]);
+  }
+
   async function handleCreate() {
     if (!selectedQuote) return alert('Seleccioná una cotización');
     setSaving(true);
     const { data: authData } = await supabase.auth.getUser();
-    const { error } = await supabase.from('sales').insert({
-      owner_id: authData.user.id,
+    const ownerId = authData.user.id;
+    const quote = quotes.find(q => q.id === selectedQuote);
+
+    const { data: sale, error } = await supabase.from('sales').insert({
+      owner_id: ownerId,
       quote_id: selectedQuote,
+      client_id: quote?.client_id || null,
       status: 'confirmed',
       amount: Number(amount),
       payment_status: 'unpaid',
       due_date: dueDate || null,
-      assigned_worker_id: workerId ? Number(workerId) : null,
+      assigned_worker_id: workerIds[0] || null, // responsable principal (compat)
     }).select().single();
     if (error) { setSaving(false); return alert(error.message); }
+
+    if (workerIds.length > 0) {
+      await supabase.from('order_assignments').insert(
+        workerIds.map(worker_id => ({ sale_id: sale.id, worker_id, owner_id: ownerId }))
+      );
+    }
+
+    if (useDefaultTasks) {
+      await supabase.from('order_tasks').insert(
+        DEFAULT_TASKS.map((t, i) => ({ sale_id: sale.id, owner_id: ownerId, stage: t.stage, label: t.label, sort_order: i }))
+      );
+    }
+
     await supabase.from('quotes').update({ status: 'approved' }).eq('id', selectedQuote);
     setSaving(false);
     onCreated();
@@ -91,7 +137,7 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros }) {
           <div className="relative">
             <select value={selectedQuote} onChange={e => handleQuoteSelect(e.target.value)} className={inputCls}>
               <option value="">— Seleccionar —</option>
-              {quotes.map(q => <option key={q.id} value={q.id}>{q.title} · ${Number(q.total).toLocaleString('es-AR')}</option>)}
+              {quotes.map(q => <option key={q.id} value={q.id}>{q.title} · {formatCurrency(q.total, country)}</option>)}
             </select>
             <ChevronDown size={13} className={`absolute right-3 top-1/2 -translate-y-1/2 ${tk.sub} pointer-events-none`} />
           </div>
@@ -109,19 +155,45 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros }) {
           <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={inputCls.replace('appearance-none', '')} />
         </div>
 
-        {/* Asignar maestro */}
+        {/* Asignar equipo — multi-selección, un cielo raso o closet se instala entre varios */}
         {maestros.length > 0 && (
           <div>
-            <label className={`block text-xs uppercase tracking-wider mb-1 ${tk.sub}`}>Asignar maestro</label>
-            <div className="relative">
-              <select value={workerId} onChange={e => setWorkerId(e.target.value)} className={inputCls}>
-                <option value="">— Sin asignar —</option>
-                {maestros.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-              <ChevronDown size={13} className={`absolute right-3 top-1/2 -translate-y-1/2 ${tk.sub} pointer-events-none`} />
+            <label className={`block text-xs uppercase tracking-wider mb-1.5 ${tk.sub}`}>
+              Asignar equipo <span className="normal-case opacity-70">(elegí uno o más)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {maestros.map(m => {
+                const active = workerIds.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleWorker(m.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition ${
+                      active
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                        : isDark ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-stone-300 text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <HardHat size={12} /> {m.name}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
+
+        {/* Checklist por defecto */}
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <div
+            onClick={() => setUseDefaultTasks(v => !v)}
+            className={`relative w-9 h-5 rounded-full border transition-colors shrink-0 ${useDefaultTasks ? 'bg-amber-500 border-amber-500' : isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-stone-200 border-stone-300'}`}
+          >
+            <motion.div animate={{ x: useDefaultTasks ? 16 : 2 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+              className="absolute top-0.5 w-3.5 h-3.5 bg-white rounded-full shadow" />
+          </div>
+          <span className={`text-xs ${tk.sub}`}>Crear checklist estándar (medición, materiales, instalación, entrega)</span>
+        </label>
 
         <button onClick={handleCreate} disabled={saving}
           className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-2xl py-3.5 transition">
@@ -132,16 +204,127 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros }) {
   );
 }
 
+// ── Checklist de una orden ─────────────────────────────────────────
+function TaskChecklist({ saleId, isDark }) {
+  const [tasks, setTasks] = useState(null); // null = cargando
+  const [newLabel, setNewLabel] = useState('');
+  const [newStage, setNewStage] = useState('otro');
+
+  const tk = isDark
+    ? { row: 'border-zinc-800', sub: 'text-zinc-500', text: 'text-white', input: 'bg-zinc-800 border-zinc-700 text-white', sel: 'bg-zinc-800 border-zinc-700 text-white' }
+    : { row: 'border-stone-100', sub: 'text-stone-500', text: 'text-stone-900', input: 'bg-stone-50 border-stone-300 text-stone-900', sel: 'bg-stone-50 border-stone-300 text-stone-900' };
+
+  useEffect(() => { fetchTasks(); }, [saleId]);
+
+  async function fetchTasks() {
+    const { data } = await supabase.from('order_tasks')
+      .select('*').eq('sale_id', saleId).order('sort_order');
+    setTasks(data || []);
+  }
+
+  async function toggleTask(task) {
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, done: !t.done } : t));
+    await supabase.from('order_tasks')
+      .update({ done: !task.done, done_at: !task.done ? new Date().toISOString() : null })
+      .eq('id', task.id);
+  }
+
+  async function addTask() {
+    if (!newLabel.trim()) return;
+    const { data: authData } = await supabase.auth.getUser();
+    const sortOrder = tasks?.length || 0;
+    const { data } = await supabase.from('order_tasks').insert({
+      sale_id: saleId, owner_id: authData.user.id,
+      stage: newStage, label: newLabel.trim(), sort_order: sortOrder,
+    }).select().single();
+    if (data) setTasks(prev => [...prev, data]);
+    setNewLabel('');
+  }
+
+  async function removeTask(id) {
+    setTasks(prev => prev.filter(t => t.id !== id));
+    await supabase.from('order_tasks').delete().eq('id', id);
+  }
+
+  if (tasks === null) {
+    return <div className={`text-xs ${tk.sub} py-3 text-center`}>Cargando checklist…</div>;
+  }
+
+  const doneCount = tasks.filter(t => t.done).length;
+
+  return (
+    <div className="space-y-3">
+      {tasks.length > 0 && (
+        <p className={`text-xs ${tk.sub}`}>{doneCount}/{tasks.length} tareas completadas</p>
+      )}
+
+      <div className="space-y-1.5">
+        {TASK_STAGES.map(stage => {
+          const stageTasks = tasks.filter(t => t.stage === stage.value);
+          if (stageTasks.length === 0) return null;
+          return (
+            <div key={stage.value}>
+              <p className={`text-[10px] uppercase tracking-wider ${tk.sub} mt-2 mb-1`}>{stage.label}</p>
+              {stageTasks.map(task => (
+                <div key={task.id} className={`flex items-center gap-2 py-1.5 border-b ${tk.row} group`}>
+                  <button onClick={() => toggleTask(task)} className="shrink-0">
+                    {task.done
+                      ? <CheckSquare size={16} className="text-emerald-500" />
+                      : <Square size={16} className={tk.sub} />}
+                  </button>
+                  <span className={`text-sm flex-1 ${task.done ? `line-through ${tk.sub}` : tk.text}`}>{task.label}</span>
+                  <button onClick={() => removeTask(task.id)}
+                    className={`opacity-0 group-hover:opacity-100 transition shrink-0 ${tk.sub} hover:text-red-400`}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Agregar tarea */}
+      <div className="flex gap-2 pt-1">
+        <input
+          value={newLabel}
+          onChange={e => setNewLabel(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addTask()}
+          placeholder="Nueva tarea…"
+          className={`flex-1 rounded-lg border px-2.5 py-1.5 text-xs outline-none focus:border-amber-500 transition ${tk.input}`}
+        />
+        <div className="relative shrink-0 w-28">
+          <select value={newStage} onChange={e => setNewStage(e.target.value)}
+            className={`w-full appearance-none rounded-lg border px-2 py-1.5 text-xs outline-none focus:border-amber-500 transition ${tk.sel}`}>
+            {TASK_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+        <button onClick={addTask} className="shrink-0 rounded-lg bg-amber-500 hover:bg-amber-400 text-black px-2.5 transition">
+          <Plus size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Tarjeta de orden ──────────────────────────────────────────────
-function OrderCard({ sale, maestros, onUpdate, isDark }) {
+function OrderCard({ sale, maestros, onUpdate, isDark, country }) {
   const [prodStatus, setProdStatus] = useState(sale.status);
   const [payStatus,  setPayStatus]  = useState(sale.payment_status);
-  const [workerId,   setWorkerId]   = useState(sale.assigned_worker_id ?? '');
+  const [assignedIds, setAssignedIds] = useState(null); // null = cargando
   const [updating,   setUpdating]   = useState(false);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   const tk = isDark
     ? { card: 'bg-zinc-900 border-zinc-800', text: 'text-white', sub: 'text-zinc-400', sel: 'bg-zinc-800 border-zinc-700 text-white', worker: 'bg-zinc-800/60 border-zinc-700' }
     : { card: 'bg-white border-stone-200',   text: 'text-stone-900', sub: 'text-stone-500', sel: 'bg-stone-50 border-stone-300 text-stone-900', worker: 'bg-stone-50 border-stone-200' };
+
+  useEffect(() => { fetchAssignments(); }, [sale.id]);
+
+  async function fetchAssignments() {
+    const { data } = await supabase.from('order_assignments').select('worker_id').eq('sale_id', sale.id);
+    setAssignedIds((data || []).map(a => a.worker_id));
+  }
 
   async function updateProd(val) {
     setUpdating(true);
@@ -158,18 +341,26 @@ function OrderCard({ sale, maestros, onUpdate, isDark }) {
     setUpdating(false);
   }
 
-  async function updateWorker(val) {
+  async function toggleAssigned(workerId) {
+    const isAssigned = assignedIds.includes(workerId);
     setUpdating(true);
-    setWorkerId(val);
-    await supabase.from('sales')
-      .update({ assigned_worker_id: val ? Number(val) : null })
-      .eq('id', sale.id);
+    if (isAssigned) {
+      setAssignedIds(prev => prev.filter(id => id !== workerId));
+      await supabase.from('order_assignments').delete().eq('sale_id', sale.id).eq('worker_id', workerId);
+    } else {
+      setAssignedIds(prev => [...prev, workerId]);
+      const { data: authData } = await supabase.auth.getUser();
+      await supabase.from('order_assignments').insert({ sale_id: sale.id, worker_id: workerId, owner_id: authData.user.id });
+    }
+    // Mantener assigned_worker_id (compat) apuntando al primero del equipo
+    const next = isAssigned ? assignedIds.filter(id => id !== workerId) : [...assignedIds, workerId];
+    await supabase.from('sales').update({ assigned_worker_id: next[0] || null }).eq('id', sale.id);
     setUpdating(false);
   }
 
-  const prodInfo    = PROD_STATUSES.find(s => s.value === prodStatus) || PROD_STATUSES[0];
-  const payInfo     = PAY_STATUSES.find(s  => s.value === payStatus)  || PAY_STATUSES[0];
-  const assignedMae = maestros.find(m => m.id === Number(workerId));
+  const prodInfo = PROD_STATUSES.find(s => s.value === prodStatus) || PROD_STATUSES[0];
+  const payInfo  = PAY_STATUSES.find(s  => s.value === payStatus)  || PAY_STATUSES[0];
+  const assignedWorkers = maestros.filter(m => (assignedIds || []).includes(m.id));
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -183,7 +374,7 @@ function OrderCard({ sale, maestros, onUpdate, isDark }) {
           </p>
           <p className={`text-sm ${tk.sub}`}>
             {sale.clients?.name || '—'}
-            {sale.due_date && ` · Entrega: ${new Date(sale.due_date).toLocaleDateString('es-AR')}`}
+            {sale.due_date && ` · Entrega: ${formatDate(sale.due_date, country, { day: '2-digit', month: 'short', year: 'numeric' })}`}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -195,27 +386,36 @@ function OrderCard({ sale, maestros, onUpdate, isDark }) {
       {/* Monto */}
       <div className="flex items-center gap-2">
         <DollarSign size={15} className="text-amber-400" />
-        <span className={`font-bold text-lg ${tk.text}`}>${Number(sale.amount).toLocaleString('es-AR')}</span>
+        <span className={`font-bold text-lg ${tk.text}`}>{formatCurrency(sale.amount, country)}</span>
       </div>
 
-      {/* Maestro asignado */}
+      {/* Equipo asignado — multi-selección */}
       {maestros.length > 0 && (
-        <div className={`rounded-xl border p-3 flex items-center gap-3 ${tk.worker}`}>
-          <HardHat size={15} className={assignedMae ? 'text-amber-500' : tk.sub} />
-          <div className="flex-1 min-w-0">
-            <p className={`text-xs uppercase tracking-wider mb-1 ${tk.sub}`}>Maestro asignado</p>
-            <div className="relative">
-              <select
-                value={workerId}
-                onChange={e => updateWorker(e.target.value)}
-                disabled={updating}
-                className={`w-full appearance-none ${tk.sel} border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500 transition`}
-              >
-                <option value="">— Sin asignar —</option>
-                {maestros.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-              <ChevronDown size={10} className={`absolute right-2 top-1/2 -translate-y-1/2 ${tk.sub} pointer-events-none`} />
-            </div>
+        <div className={`rounded-xl border p-3 space-y-2 ${tk.worker}`}>
+          <div className="flex items-center gap-2">
+            <Users size={14} className={assignedWorkers.length ? 'text-amber-500' : tk.sub} />
+            <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>
+              Equipo asignado {assignedWorkers.length > 0 && `(${assignedWorkers.length})`}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {maestros.map(m => {
+              const active = (assignedIds || []).includes(m.id);
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => toggleAssigned(m.id)}
+                  disabled={updating || assignedIds === null}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition disabled:opacity-50 ${
+                    active
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-500'
+                      : isDark ? 'border-zinc-700 text-zinc-500 hover:bg-zinc-800' : 'border-stone-300 text-stone-500 hover:bg-stone-100'
+                  }`}
+                >
+                  <HardHat size={10} /> {m.name}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -243,6 +443,30 @@ function OrderCard({ sale, maestros, onUpdate, isDark }) {
           </div>
         </div>
       </div>
+
+      {/* Checklist expandible */}
+      <div className={`pt-1 border-t ${isDark ? 'border-zinc-800' : 'border-stone-100'}`}>
+        <button
+          onClick={() => setShowChecklist(v => !v)}
+          className={`flex items-center gap-2 text-xs font-medium py-2 w-full ${tk.sub} hover:${tk.text} transition`}
+        >
+          <ListChecks size={14} />
+          {showChecklist ? 'Ocultar checklist' : 'Ver checklist de tareas'}
+          <ChevronDown size={12} className={`ml-auto transition-transform ${showChecklist ? 'rotate-180' : ''}`} />
+        </button>
+        <AnimatePresence>
+          {showChecklist && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="pt-1 pb-1">
+                <TaskChecklist saleId={sale.id} isDark={isDark} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
@@ -251,6 +475,7 @@ function OrderCard({ sale, maestros, onUpdate, isDark }) {
 export default function OrdersPage() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const country = useShopCountry();
   const [sales,        setSales]        = useState([]);
   const [maestros,     setMaestros]     = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -344,7 +569,7 @@ export default function OrdersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <AnimatePresence>
             {filtered.map(sale => (
-              <OrderCard key={sale.id} sale={sale} maestros={maestros} onUpdate={fetchAll} isDark={isDark} />
+              <OrderCard key={sale.id} sale={sale} maestros={maestros} onUpdate={fetchAll} isDark={isDark} country={country} />
             ))}
           </AnimatePresence>
         </div>
@@ -352,7 +577,7 @@ export default function OrdersPage() {
 
       <AnimatePresence>
         {showNew && (
-          <NewOrderModal onClose={() => setShowNew(false)} onCreated={fetchAll} isDark={isDark} maestros={maestros} />
+          <NewOrderModal onClose={() => setShowNew(false)} onCreated={fetchAll} isDark={isDark} maestros={maestros} country={country} />
         )}
       </AnimatePresence>
     </div>
