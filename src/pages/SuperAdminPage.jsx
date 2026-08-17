@@ -11,12 +11,14 @@ import {
   LogOut, ExternalLink, AlertTriangle, Trash2, ChevronUp,
   Zap, RotateCcw, Eye, Mail, Settings, Plus, X,
   DollarSign, Users, Save, Pencil, Receipt, XCircle, ImageIcon, Scissors,
+  Wallet,
 } from 'lucide-react';
 import { useSuperAdminStore } from '../store/superAdminStore';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { COUNTRIES } from '../lib/countries';
+import { COUNTRIES, getCountry } from '../lib/countries';
+import CurrencyInput from '../components/shared/CurrencyInput';
 
 // Monedas únicas soportadas por país, en el orden de COUNTRIES.
 const PLAN_CURRENCIES = [...new Set(COUNTRIES.map(c => c.currency))];
@@ -135,7 +137,9 @@ function ShopRow({ shop, onPlanChange, onDelete, onResetTrial, onToggleOptimizer
               <Store size={13} className="text-amber-400" />
             </div>
             <div>
-              <p className="font-semibold text-white text-sm truncate max-w-[120px]">{shop.shop_name || '—'}</p>
+              <p className="font-semibold text-white text-sm truncate max-w-[120px] flex items-center gap-1.5">
+                <span>{getCountry(shop.country).flag}</span> {shop.shop_name || '—'}
+              </p>
               {shop.city && <p className="text-[10px] text-zinc-600">{shop.city}</p>}
             </div>
           </div>
@@ -300,10 +304,10 @@ function PlanEditor({ plan, onSave, onCancel }) {
           {PLAN_CURRENCIES.map(currency => (
             <div key={currency}>
               <label className="block text-xs text-zinc-600 mb-1">{currency}</label>
-              <input
-                type="number"
+              <CurrencyInput
                 value={form.prices?.[currency] ?? ''}
-                onChange={e => setPrice(currency, e.target.value)}
+                onChange={v => setPrice(currency, v)}
+                allowDecimals={currency === 'USD'}
                 placeholder="0"
                 className={inp}
               />
@@ -318,11 +322,11 @@ function PlanEditor({ plan, onSave, onCancel }) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs text-zinc-600 mb-1">Máx. productos</label>
-            <input type="number" value={form.max_products} onChange={e => setF('max_products', Number(e.target.value))} className={inp} />
+            <CurrencyInput value={form.max_products} onChange={v => setF('max_products', Number(v) || 0)} className={inp} />
           </div>
           <div>
             <label className="block text-xs text-zinc-600 mb-1">Máx. clientes</label>
-            <input type="number" value={form.max_clients} onChange={e => setF('max_clients', Number(e.target.value))} className={inp} />
+            <CurrencyInput value={form.max_clients} onChange={v => setF('max_clients', Number(v) || 0)} className={inp} />
           </div>
           <div className="flex items-center gap-3 pt-5">
             <button
@@ -435,6 +439,47 @@ function PendingProofRow({ proof, onReview, reviewing }) {
   );
 }
 
+// ── Fila editable de método de pago ──────────────────────────────────
+function PaymentMethodRow({ method, saving, onSave }) {
+  const [value, setValue] = useState(method.value);
+  const [active, setActive] = useState(method.active);
+  const dirty = value !== method.value || active !== method.active;
+
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex items-center gap-3 sm:w-48 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActive(v => !v)}
+          className={`relative w-10 h-6 rounded-full border transition-colors shrink-0 ${active ? 'bg-amber-500 border-amber-500' : 'bg-zinc-700 border-zinc-600'}`}
+        >
+          <motion.div animate={{ x: active ? 18 : 2 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className="absolute top-1 w-4 h-4 bg-white rounded-full shadow" />
+        </button>
+        <p className={`text-sm font-bold ${active ? 'text-white' : 'text-zinc-600'}`}>{method.label}</p>
+      </div>
+
+      <div className="flex-1 relative">
+        <input
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          placeholder="Ej: correo, ID o datos de la cuenta"
+          className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500 transition font-mono"
+        />
+      </div>
+
+      <button
+        onClick={() => onSave(method.id, value, active)}
+        disabled={!dirty || saving}
+        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-40 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 shrink-0"
+      >
+        {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+        Guardar
+      </button>
+    </div>
+  );
+}
+
 // ── Página principal ───────────────────────────────────────────────
 export default function SuperAdminPage() {
   const { metrics, shops, metricsLoading, loadMetrics, updateShopPlan } = useSuperAdminStore();
@@ -443,6 +488,7 @@ export default function SuperAdminPage() {
 
   const [search, setSearch]         = useState('');
   const [filterPlan, setFilterPlan] = useState('all');
+  const [filterCountry, setFilterCountry] = useState('all');
   const [updatingPlan, setUpdatingPlan] = useState(null);
   const [toast, setToast]           = useState(null);
   const [activeTab, setActiveTab]   = useState('talleres'); // 'talleres' | 'planes' | 'comprobantes'
@@ -452,11 +498,31 @@ export default function SuperAdminPage() {
   const [planConfigs, setPlanConfigs] = useState([]);
   const [editingPlan, setEditingPlan] = useState(null); // plan_id siendo editado
 
-  useEffect(() => { loadMetrics(); loadPlanConfigs(); }, []);
+  // Métodos de pago manual
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [savingMethod, setSavingMethod] = useState(null);
+
+  useEffect(() => { loadMetrics(); loadPlanConfigs(); loadPaymentMethods(); }, []);
 
   async function loadPlanConfigs() {
     const { data } = await supabase.from('plan_config').select('*').in('plan_id', ['free', 'pro']).order('price');
     if (data) setPlanConfigs(data);
+  }
+
+  async function loadPaymentMethods() {
+    const { data } = await supabase.from('payment_methods_config').select('*').order('sort_order');
+    if (data) setPaymentMethods(data);
+  }
+
+  async function handleSavePaymentMethod(id, value, active) {
+    setSavingMethod(id);
+    const { error } = await supabase
+      .from('payment_methods_config')
+      .update({ value, active, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    setSavingMethod(null);
+    if (!error) { showToast('Método de pago actualizado', 'ok'); loadPaymentMethods(); }
+    else          showToast('Error al guardar el método de pago', 'err');
   }
 
   function showToast(msg, type = 'ok') {
@@ -547,7 +613,8 @@ export default function SuperAdminPage() {
       s.slug?.toLowerCase().includes(q) ||
       s.city?.toLowerCase().includes(q);
     const matchPlan = filterPlan === 'all' || s.sub_plan === filterPlan || s.sub_status === filterPlan;
-    return matchSearch && matchPlan;
+    const matchCountry = filterCountry === 'all' || s.country === filterCountry;
+    return matchSearch && matchPlan && matchCountry;
   });
 
   const m = metrics || {};
@@ -563,6 +630,7 @@ export default function SuperAdminPage() {
     { id: 'talleres',     label: 'Talleres',     icon: Store },
     { id: 'comprobantes', label: 'Comprobantes', icon: Receipt, badge: pendingProofs.length },
     { id: 'planes',       label: 'Planes',        icon: Settings },
+    { id: 'pagos',        label: 'Métodos de pago', icon: Wallet },
   ];
 
   return (
@@ -661,6 +729,22 @@ export default function SuperAdminPage() {
                         filterPlan === f ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'
                       }`}>
                       {f === 'all' ? 'Todos' : f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={() => setFilterCountry('all')}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition border ${
+                      filterCountry === 'all' ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'
+                    }`}>
+                    Todos los países
+                  </button>
+                  {COUNTRIES.map(c => (
+                    <button key={c.code} onClick={() => setFilterCountry(c.code)}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold transition border ${
+                        filterCountry === c.code ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:bg-zinc-800'
+                      }`}>
+                      {c.flag} {c.name}
                     </button>
                   ))}
                 </div>
@@ -847,6 +931,37 @@ export default function SuperAdminPage() {
                       )}
                     </AnimatePresence>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB: MÉTODOS DE PAGO ── */}
+        {activeTab === 'pagos' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-black text-white">Métodos de pago manual</h2>
+              <p className="text-sm text-zinc-500 mt-1">
+                Credenciales que ven los talleres en Suscripción para pagar por transferencia (países sin MercadoPago). Todo en USD.
+              </p>
+            </div>
+
+            {paymentMethods.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-12 text-center text-zinc-600">
+                <Wallet size={32} strokeWidth={1} className="mx-auto mb-3" />
+                <p className="text-sm">No hay métodos de pago configurados.</p>
+                <p className="text-xs mt-1">Ejecutá el SQL <code>add_payment_methods_config.sql</code> en Supabase.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {paymentMethods.map(method => (
+                  <PaymentMethodRow
+                    key={method.id}
+                    method={method}
+                    saving={savingMethod === method.id}
+                    onSave={handleSavePaymentMethod}
+                  />
                 ))}
               </div>
             )}

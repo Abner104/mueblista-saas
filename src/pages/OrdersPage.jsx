@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
 import { formatCurrency, formatDate } from '../lib/formatters';
 import { useShopCountry } from '../lib/useShopCountry';
+import CurrencyInput from '../components/shared/CurrencyInput';
 
 // Etapas del checklist — cubren instalación en sitio (PVC, drywall) además
 // de fabricación de mueble a medida.
@@ -146,7 +147,7 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros, country }) {
         {/* Monto */}
         <div>
           <label className={`block text-xs uppercase tracking-wider mb-1 ${tk.sub}`}>Monto ($)</label>
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className={inputCls.replace('appearance-none', '')} />
+          <CurrencyInput value={amount} onChange={setAmount} className={inputCls.replace('appearance-none', '')} />
         </div>
 
         {/* Fecha entrega */}

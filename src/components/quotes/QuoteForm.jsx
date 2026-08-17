@@ -6,6 +6,7 @@ import { calculateQuote } from '../../lib/quoteCalculator';
 import { useThemeStore } from '../../store/themeStore';
 import { formatCurrency } from '../../lib/formatters';
 import { useShopCountry } from '../../lib/useShopCountry';
+import CurrencyInput from '../shared/CurrencyInput';
 
 const FURNITURE_TYPES = ['Closet', 'Cocina', 'Baño', 'Biblioteca', 'Escritorio', 'Comedor', 'Sala', 'Oficina', 'Otro'];
 
@@ -338,10 +339,9 @@ export default function QuoteForm({ onSaved, prefill }) {
                         />
                       </td>
                       <td className="py-2 pr-2">
-                        <input
-                          type="number" min="0"
+                        <CurrencyInput
                           value={item.unit_cost}
-                          onChange={(e) => updateItem(i, 'unit_cost', e.target.value)}
+                          onChange={(v) => updateItem(i, 'unit_cost', v)}
                           className={`w-full text-right border rounded-lg px-2 py-1 focus:outline-none transition ${tk.inputSm}`}
                         />
                       </td>
@@ -365,18 +365,26 @@ export default function QuoteForm({ onSaved, prefill }) {
       {/* Costos adicionales + Margen */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          ['Mano de obra ($)', 'labor_cost'],
-          ['Costos extra ($)', 'extra_cost'],
-          ['Margen de ganancia (%)', 'margin_percent'],
-        ].map(([label, key]) => (
+          ['Mano de obra ($)', 'labor_cost', true],
+          ['Costos extra ($)', 'extra_cost', true],
+          ['Margen de ganancia (%)', 'margin_percent', false],
+        ].map(([label, key, isMoney]) => (
           <div key={key}>
             <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>{label}</label>
-            <input
-              type="number" min="0" max={key === 'margin_percent' ? 200 : undefined}
-              value={form[key]}
-              onChange={(e) => setField(key, e.target.value)}
-              className={inputBase}
-            />
+            {isMoney ? (
+              <CurrencyInput
+                value={form[key]}
+                onChange={(v) => setField(key, v)}
+                className={inputBase}
+              />
+            ) : (
+              <input
+                type="number" min="0" max="200"
+                value={form[key]}
+                onChange={(e) => setField(key, e.target.value)}
+                className={inputBase}
+              />
+            )}
           </div>
         ))}
       </div>

@@ -18,13 +18,7 @@ import { supabase } from '../lib/supabaseClient';
 import { getCountry } from '../lib/countries';
 import { formatCurrency, formatDate, getPlanPrice } from '../lib/formatters';
 
-// Datos de cobro manual — reemplazá con tus datos reales.
-const MANUAL_PAYMENT_INFO = {
-  usdt:       { label: 'USDT (TRC20)', value: 'TU_WALLET_USDT_AQUI' },
-  binance:    { label: 'Binance Pay ID', value: 'TU_BINANCE_ID_AQUI' },
-  zelle:      { label: 'Zelle', value: 'tuemail@ejemplo.com' },
-  pago_movil: { label: 'Pago Móvil', value: 'Banco · Cédula · Teléfono' },
-};
+// Datos de cobro manual — editables desde Super Admin (payment_methods_config).
 
 function FeatureRow({ label, locked = false }) {
   return (
@@ -75,6 +69,7 @@ function ManualPaymentPanel({ user, country, proPrice, tk }) {
   const [error, setError] = useState('');
   const [pendingProof, setPendingProof] = useState(null);
   const [checkedExisting, setCheckedExisting] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState({});
 
   useEffect(() => {
     async function checkExisting() {
@@ -90,6 +85,21 @@ function ManualPaymentPanel({ user, country, proPrice, tk }) {
     }
     if (user?.id) checkExisting();
   }, [user?.id]);
+
+  useEffect(() => {
+    supabase
+      .from('payment_methods_config')
+      .select('id, label, value')
+      .eq('active', true)
+      .order('sort_order')
+      .then(({ data }) => {
+        const map = {};
+        for (const m of data || []) map[m.id] = { label: m.label, value: m.value };
+        setPaymentMethods(map);
+        if (data?.length && !data.find((m) => m.id === method)) setMethod(data[0].id);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit() {
     if (!reference.trim()) { setError('Ingresá el número de referencia o hash de la transacción'); return; }
@@ -155,7 +165,7 @@ function ManualPaymentPanel({ user, country, proPrice, tk }) {
       <div>
         <p className={`text-xs font-bold uppercase tracking-widest ${tk.sub} mb-2`}>Pagá con</p>
         <div className="flex flex-wrap gap-2">
-          {Object.entries(MANUAL_PAYMENT_INFO).map(([key, info]) => (
+          {Object.entries(paymentMethods).map(([key, info]) => (
             <button
               key={key}
               onClick={() => setMethod(key)}
@@ -167,12 +177,14 @@ function ManualPaymentPanel({ user, country, proPrice, tk }) {
             </button>
           ))}
         </div>
-        <div className="mt-3 flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2.5">
-          <span className="text-sm font-mono text-white flex-1 truncate">{MANUAL_PAYMENT_INFO[method].value}</span>
-          <button onClick={() => copyValue(MANUAL_PAYMENT_INFO[method].value)} className="text-zinc-400 hover:text-white transition shrink-0">
-            <Copy size={14} />
-          </button>
-        </div>
+        {paymentMethods[method] && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-zinc-800/60 px-3 py-2.5">
+            <span className="text-sm font-mono text-white flex-1 truncate">{paymentMethods[method].value}</span>
+            <button onClick={() => copyValue(paymentMethods[method].value)} className="text-zinc-400 hover:text-white transition shrink-0">
+              <Copy size={14} />
+            </button>
+          </div>
+        )}
         <p className={`text-xs ${tk.sub} mt-2`}>
           Monto a transferir: <span className="font-bold text-white">{formatCurrency(proPrice.amount, country.code, proPrice.currency)}</span>
         </p>

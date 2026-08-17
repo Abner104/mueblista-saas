@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
 import { useShopCountry } from '../lib/useShopCountry';
+import CurrencyInput from '../components/shared/CurrencyInput';
 
 // ── Constantes ────────────────────────────────────────────────────
 const CATEGORIES = ['melamina', 'herraje', 'canto', 'corredera', 'tornillería', 'vidrio', 'iluminación', 'otro'];
@@ -164,7 +165,7 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Costo ($)</Label>
-              <input type="number" min="0" value={form.cost} onChange={(e) => setF('cost', e.target.value)} placeholder="0" className={InputCls} />
+              <CurrencyInput value={form.cost} onChange={(v) => setF('cost', v)} placeholder="0" className={InputCls} />
             </div>
             <div>
               <Label>Stock actual</Label>
