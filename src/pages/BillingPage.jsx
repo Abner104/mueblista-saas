@@ -335,7 +335,7 @@ export default function BillingPage() {
             <div className="flex items-center gap-3">
               <span
                 className="text-3xl font-black"
-                style={{ color: isPro ? '#c8923a' : '#71717a' }}
+                style={{ color: isPro ? '#c8923a' : (isDark ? '#a1a1aa' : '#57534e') }}
               >
                 {plan === 'pro' ? 'Pro' : plan === 'enterprise' ? 'Enterprise' : 'Free'}
               </span>

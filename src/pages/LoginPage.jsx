@@ -47,14 +47,17 @@ function toSlug(str) {
     .slice(0, 40);
 }
 
+// mode: 'login' | 'register' | 'forgot'
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { checkSuperAdmin } = useSuperAdminStore();
   const [isRegister, setIsRegister] = useState(searchParams.get('register') === '1');
+  const [mode, setMode] = useState('login'); // ver arriba
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [slugPreview, setSlugPreview] = useState('');
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -173,6 +176,21 @@ export default function LoginPage() {
     await redirectAfterLogin(loginData.user, checkSuperAdmin, navigate);
   }
 
+  // Manda el link de recuperación de contraseña — Supabase lo lleva a
+  // /reset-password con una sesión temporal para definir la nueva.
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(form.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (resetError) { setError(resetError.message); return; }
+    setInfo('Te mandamos un correo con el link para restablecer tu contraseña.');
+    setMode('login');
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white grid lg:grid-cols-2">
 
@@ -220,6 +238,70 @@ export default function LoginPage() {
             <img src="/LogoCarpento.png" alt="WoodFlow" className="h-9 w-auto" />
           </div>
 
+          {/* Info */}
+          <AnimatePresence>
+            {info && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="mb-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-300"
+              >
+                {info}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {mode === 'forgot' && (
+            <motion.form
+              key="forgot"
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+              onSubmit={handleForgotPassword}
+              className="rounded-3xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-xl p-5 md:p-8 shadow-2xl"
+            >
+              <h2 className="text-2xl md:text-3xl font-bold">Recuperar contraseña</h2>
+              <p className="mt-2 text-zinc-400 text-sm">
+                Te vamos a mandar un link a tu correo para elegir una contraseña nueva.
+              </p>
+
+              <input
+                type="email"
+                placeholder="Correo electrónico"
+                value={form.email}
+                onChange={(e) => setField('email', e.target.value)}
+                required
+                className="mt-6 w-full rounded-2xl bg-zinc-800 border border-zinc-700 px-4 py-3 text-sm outline-none focus:border-amber-500 transition placeholder-zinc-600"
+              />
+
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="mt-4 flex items-start gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-300"
+                  >
+                    <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-5 w-full rounded-2xl bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black font-bold px-4 py-3.5 transition shadow-lg shadow-amber-500/20"
+              >
+                {loading ? 'Enviando…' : 'Enviar link'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(''); }}
+                className="mt-4 w-full text-sm text-zinc-500 hover:text-zinc-300 transition"
+              >
+                Volver a iniciar sesión
+              </button>
+            </motion.form>
+          )}
+
+          {(mode === 'login' || mode === 'register') && (
           <motion.form
             key={isRegister ? 'register' : 'login'}
             initial={{ opacity: 0, y: 12 }}
@@ -337,6 +419,16 @@ export default function LoginPage() {
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+
+              {!isRegister && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('forgot'); setError(''); }}
+                  className="text-xs text-zinc-500 hover:text-amber-400 transition"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              )}
             </div>
 
             {/* Error */}
@@ -370,6 +462,7 @@ export default function LoginPage() {
               {isRegister ? '¿Ya tenés cuenta? Iniciá sesión' : '¿No tenés cuenta? Registrate gratis'}
             </button>
           </motion.form>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
 import DashboardPage from '../pages/DashboardPage';
 import ClientsPage from '../pages/ClientsPage';
 import QuotesPage from '../pages/QuotesPage';
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
 
   // ── Rutas públicas (sin login) ──────────────────
   { path: '/login',          element: <LoginPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/catalogo/:slug', element: <CatalogPage /> },
   // Redirige /catalogo sin slug a login
   { path: '/catalogo',       element: <Navigate to="/login" replace /> },
