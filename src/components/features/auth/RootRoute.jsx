@@ -2,24 +2,27 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { useSuperAdminStore } from '../../../store/superAdminStore';
+import { useRoleStore } from '../../../store/roleStore';
 import LandingPage from '../../../pages/LandingPage';
 
 /**
  * RootRoute — decide qué mostrar en /
  * - Cargando auth: spinner mínimo
  * - Super-admin autenticado: redirige a /super
- * - Usuario normal autenticado: redirige a /app
+ * - Trabajador (maestro/vendedor) autenticado: redirige a su panel propio
+ * - Dueño del taller autenticado: redirige a /app
  * - Sin sesión: muestra LandingPage
  */
 export default function RootRoute() {
   const { user, loading } = useAuthStore();
   const { isSuperAdmin, checkSuperAdmin } = useSuperAdminStore();
+  const { role, loadRole } = useRoleStore();
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!user || loading) return;
     setChecking(true);
-    checkSuperAdmin(user).finally(() => setChecking(false));
+    Promise.all([checkSuperAdmin(user), loadRole(user.id)]).finally(() => setChecking(false));
   }, [user, loading]);
 
   if (loading || checking) {
@@ -38,7 +41,12 @@ export default function RootRoute() {
     );
   }
 
-  if (user) return <Navigate to={isSuperAdmin ? '/super' : '/app'} replace />;
+  if (user) {
+    if (isSuperAdmin) return <Navigate to="/super" replace />;
+    if (role === 'maestro')  return <Navigate to="/maestro" replace />;
+    if (role === 'vendedor') return <Navigate to="/vendedor" replace />;
+    return <Navigate to="/app" replace />;
+  }
 
   return <LandingPage />;
 }
