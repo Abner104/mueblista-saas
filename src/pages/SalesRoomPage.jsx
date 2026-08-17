@@ -12,10 +12,48 @@ import {
   X, ImagePlus, ChevronLeft, ChevronRight, Loader2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { useThemeStore } from '../store/themeStore';
 
-const BUCKET    = 'catalog-photos';
-const CATS      = ['dormitorio','cocina','sala','oficina','exterior','otro'];
-const INPUT_CLS = 'w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500 transition';
+const BUCKET = 'catalog-photos';
+const CATS   = ['dormitorio','cocina','sala','oficina','exterior','otro'];
+
+// Tokens de color por tema — mismo patrón que el resto del panel
+// (OrdersPage, WorkersPage). Se pasan a los subcomponentes como prop `tk`.
+function getTokens(isDark) {
+  return isDark ? {
+    page:      'bg-zinc-950',
+    header:    'bg-[#131009]',
+    card:      'bg-zinc-900 border-zinc-800',
+    cardAlt:   'bg-zinc-800 border-zinc-700',
+    input:     'bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600',
+    text:      'text-white',
+    sub:       'text-zinc-400',
+    subFaint:  'text-zinc-500',
+    subFaint2: 'text-zinc-600',
+    border:    'border-zinc-800',
+    borderAlt: 'border-zinc-700',
+    dashed:    'border-zinc-700',
+    hoverRow:  'hover:bg-zinc-700',
+    btnGhost:  'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800',
+    modalBg:   'bg-zinc-950 border-zinc-800',
+  } : {
+    page:      'bg-stone-100',
+    header:    'bg-white',
+    card:      'bg-white border-stone-200',
+    cardAlt:   'bg-stone-50 border-stone-200',
+    input:     'bg-stone-50 border-stone-300 text-stone-900 placeholder:text-stone-400',
+    text:      'text-stone-900',
+    sub:       'text-stone-500',
+    subFaint:  'text-stone-500',
+    subFaint2: 'text-stone-400',
+    border:    'border-stone-200',
+    borderAlt: 'border-stone-300',
+    dashed:    'border-stone-300',
+    hoverRow:  'hover:bg-stone-200',
+    btnGhost:  'border-stone-300 bg-white text-stone-600 hover:bg-stone-100',
+    modalBg:   'bg-white border-stone-200',
+  };
+}
 
 const DEFAULT_CONFIG = {
   shop_name: '', tagline: '', accent_color: '#c8923a',
@@ -58,21 +96,21 @@ function Toast({ msg, type }) {
   );
 }
 
-function SectionTitle({ icon: Icon, label }) {
+function SectionTitle({ icon: Icon, label, tk }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+      <div className={`w-8 h-8 rounded-lg ${tk.cardAlt} border flex items-center justify-center`}>
         <Icon size={15} className="text-amber-500" />
       </div>
-      <h2 className="text-base font-bold text-white">{label}</h2>
+      <h2 className={`text-base font-bold ${tk.text}`}>{label}</h2>
     </div>
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, tk }) {
   return (
     <div>
-      <label className="block text-xs text-zinc-500 mb-1.5 uppercase tracking-wider">{label}</label>
+      <label className={`block text-xs ${tk.subFaint} mb-1.5 uppercase tracking-wider`}>{label}</label>
       {children}
     </div>
   );
@@ -116,7 +154,7 @@ function Lightbox({ photos, index, onClose }) {
 
 // ─── PHOTO UPLOADER ────────────────────────────────────────────────────────
 
-function PhotoUploader({ photos, onChange, userId, label='Fotos', max=10 }) {
+function PhotoUploader({ photos, onChange, userId, label='Fotos', max=10, tk }) {
   const inputRef = useRef(null);
   const [busy, setBusy]   = useState(false);
   const [lb,   setLb]     = useState(null);
@@ -147,11 +185,11 @@ function PhotoUploader({ photos, onChange, userId, label='Fotos', max=10 }) {
 
   return (
     <div>
-      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider">{label} ({photos.length}/{max})</p>
+      <p className={`text-xs ${tk.subFaint} mb-2 uppercase tracking-wider`}>{label} ({photos.length}/{max})</p>
       {photos.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-3">
           {photos.map((url, i) => (
-            <div key={url} className="relative group aspect-square rounded-xl overflow-hidden border border-zinc-700">
+            <div key={url} className={`relative group aspect-square rounded-xl overflow-hidden border ${tk.borderAlt}`}>
               <img src={url} alt="" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setLb(i)}/>
               <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{i+1}</div>
               <button onClick={() => removePhoto(url)}
@@ -165,11 +203,11 @@ function PhotoUploader({ photos, onChange, userId, label='Fotos', max=10 }) {
       {photos.length < max && (
         <div onDrop={e=>{e.preventDefault();handleFiles(e.dataTransfer.files);}}
           onDragOver={e=>e.preventDefault()} onClick={() => inputRef.current?.click()}
-          className="w-full rounded-xl border border-dashed border-zinc-700 bg-zinc-900 h-24 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-amber-500/60 hover:bg-zinc-800 transition group">
+          className={`w-full rounded-xl border border-dashed ${tk.dashed} ${tk.cardAlt} h-24 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-amber-500/60 transition group`}>
           {busy
             ? <Loader2 size={20} className="text-amber-500 animate-spin"/>
-            : <><ImagePlus size={20} className="text-zinc-600 group-hover:text-amber-500 transition"/>
-                <p className="text-xs text-zinc-600 group-hover:text-zinc-400 transition">Clic o arrastrá · PNG, JPG, WEBP · máx 5 MB</p></>
+            : <><ImagePlus size={20} className={`${tk.subFaint2} group-hover:text-amber-500 transition`}/>
+                <p className={`text-xs ${tk.subFaint2} group-hover:${tk.sub} transition`}>Clic o arrastrá · PNG, JPG, WEBP · máx 5 MB</p></>
           }
         </div>
       )}
@@ -184,7 +222,7 @@ function PhotoUploader({ photos, onChange, userId, label='Fotos', max=10 }) {
 
 // ─── LOGO UPLOADER ─────────────────────────────────────────────────────────
 
-function LogoUploader({ logoUrl, onChange, userId }) {
+function LogoUploader({ logoUrl, onChange, userId, tk }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [err,  setErr]  = useState('');
@@ -204,18 +242,18 @@ function LogoUploader({ logoUrl, onChange, userId }) {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="w-16 h-16 rounded-xl border border-dashed border-zinc-700 bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-amber-500/60 transition"
+      <div className={`w-16 h-16 rounded-xl border border-dashed ${tk.dashed} ${tk.cardAlt} flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-amber-500/60 transition`}
         onClick={() => inputRef.current?.click()}>
         {busy ? <Loader2 size={20} className="text-amber-500 animate-spin"/>
           : logoUrl ? <img src={logoUrl} alt="logo" className="w-full h-full object-contain"/>
-          : <Hammer size={24} className="text-zinc-600"/>}
+          : <Hammer size={24} className={tk.subFaint2}/>}
       </div>
       <div>
         <button onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs text-zinc-400 hover:bg-zinc-700 transition">
+          className={`flex items-center gap-2 rounded-xl border ${tk.cardAlt} px-4 py-2 text-xs ${tk.sub} ${tk.hoverRow} transition`}>
           <Upload size={13}/> {logoUrl ? 'Cambiar logo' : 'Subir logo'}
         </button>
-        <p className="text-[10px] text-zinc-600 mt-1">PNG o SVG transparente · máx 2 MB</p>
+        <p className={`text-[10px] ${tk.subFaint2} mt-1`}>PNG o SVG transparente · máx 2 MB</p>
         {err && <p className="text-[10px] text-red-400 mt-1">{err}</p>}
       </div>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e=>handleFile(e.target.files?.[0])}/>
@@ -225,10 +263,11 @@ function LogoUploader({ logoUrl, onChange, userId }) {
 
 // ─── MODAL COLECCIÓN ───────────────────────────────────────────────────────
 
-function CollectionModal({ collection, userId, onSave, onClose }) {
+function CollectionModal({ collection, userId, onSave, onClose, tk }) {
   const isNew = !collection?.id;
   const [form, setForm] = useState(collection ? { ...collection, photos: collection.photos || [] } : { ...EMPTY_COLLECTION });
   const [busy, setBusy] = useState(false);
+  const inputCls = `w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-zinc-500 transition ${tk.input}`;
 
   function set(k, v) { setForm(p => ({ ...p, [k]: v })); }
 
@@ -248,27 +287,27 @@ function CollectionModal({ collection, userId, onSave, onClose }) {
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
-      <motion.div className="relative z-10 w-full max-w-2xl rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl overflow-hidden flex flex-col"
+      <motion.div className={`relative z-10 w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col ${tk.modalBg}`}
         style={{ maxHeight:'90vh' }}
         initial={{ scale:0.93, y:20 }} animate={{ scale:1, y:0 }} exit={{ scale:0.93, y:20 }}
         transition={{ type:'spring', stiffness:300, damping:28 }}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800 shrink-0">
-          <h3 className="text-lg font-bold text-white">{isNew ? 'Nueva colección' : 'Editar colección'}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-800 transition text-zinc-500"><X size={16}/></button>
+        <div className={`flex items-center justify-between px-6 py-5 border-b ${tk.border} shrink-0`}>
+          <h3 className={`text-lg font-bold ${tk.text}`}>{isNew ? 'Nueva colección' : 'Editar colección'}</h3>
+          <button onClick={onClose} className={`p-1.5 rounded-lg ${tk.hoverRow} transition ${tk.subFaint}`}><X size={16}/></button>
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          <PhotoUploader photos={form.photos} onChange={v => set('photos', v)} userId={userId} label="Fotos de la colección" max={20}/>
-          <Field label="Título de la colección">
-            <input className={INPUT_CLS} value={form.title} onChange={e => set('title', e.target.value)} placeholder="Ej: Dormitorios 2024, Cocinas modernas"/>
+          <PhotoUploader photos={form.photos} onChange={v => set('photos', v)} userId={userId} label="Fotos de la colección" max={20} tk={tk}/>
+          <Field label="Título de la colección" tk={tk}>
+            <input className={inputCls} value={form.title} onChange={e => set('title', e.target.value)} placeholder="Ej: Dormitorios 2024, Cocinas modernas"/>
           </Field>
-          <Field label="Descripción (opcional)">
-            <textarea className={INPUT_CLS + ' resize-none'} rows={2}
+          <Field label="Descripción (opcional)" tk={tk}>
+            <textarea className={inputCls + ' resize-none'} rows={2}
               value={form.description} onChange={e => set('description', e.target.value)}
               placeholder="Breve descripción de este conjunto de trabajos..."/>
           </Field>
         </div>
-        <div className="flex gap-3 px-6 py-5 border-t border-zinc-800 shrink-0">
-          <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 py-3 text-sm text-zinc-400 hover:bg-zinc-800 transition">Cancelar</button>
+        <div className={`flex gap-3 px-6 py-5 border-t ${tk.border} shrink-0`}>
+          <button onClick={onClose} className={`flex-1 rounded-xl border py-3 text-sm transition ${tk.btnGhost}`}>Cancelar</button>
           <button onClick={handleSave} disabled={busy}
             className="flex-1 rounded-xl bg-amber-500 text-black py-3 text-sm font-bold hover:bg-amber-400 transition disabled:opacity-40 flex items-center justify-center gap-2">
             {busy ? <Loader2 size={15} className="animate-spin"/> : <Save size={14}/>}
@@ -282,10 +321,11 @@ function CollectionModal({ collection, userId, onSave, onClose }) {
 
 // ─── MODAL PRODUCTO ────────────────────────────────────────────────────────
 
-function ProductModal({ product, userId, onSave, onClose }) {
+function ProductModal({ product, userId, onSave, onClose, tk }) {
   const isNew = !product?.id;
   const [form, setForm] = useState(product ? { ...product, photos: product.photos || [] } : { ...EMPTY_PRODUCT });
   const [busy, setBusy] = useState(false);
+  const inputCls = `w-full rounded-xl border px-4 py-2.5 text-sm outline-none focus:border-zinc-500 transition ${tk.input}`;
 
   function set(k, v) { setForm(p => ({ ...p, [k]: v })); }
 
@@ -305,52 +345,52 @@ function ProductModal({ product, userId, onSave, onClose }) {
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose}/>
-      <motion.div className="relative z-10 w-full max-w-2xl rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl overflow-hidden flex flex-col"
+      <motion.div className={`relative z-10 w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col ${tk.modalBg}`}
         style={{ maxHeight:'90vh' }}
         initial={{ scale:0.93, y:20 }} animate={{ scale:1, y:0 }} exit={{ scale:0.93, y:20 }}
         transition={{ type:'spring', stiffness:300, damping:28 }}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800 shrink-0">
-          <h3 className="text-lg font-bold text-white">{isNew ? 'Nuevo producto' : 'Editar producto'}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-800 transition text-zinc-500"><X size={16}/></button>
+        <div className={`flex items-center justify-between px-6 py-5 border-b ${tk.border} shrink-0`}>
+          <h3 className={`text-lg font-bold ${tk.text}`}>{isNew ? 'Nuevo producto' : 'Editar producto'}</h3>
+          <button onClick={onClose} className={`p-1.5 rounded-lg ${tk.hoverRow} transition ${tk.subFaint}`}><X size={16}/></button>
         </div>
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
-          <PhotoUploader photos={form.photos} onChange={v => set('photos', v)} userId={userId} label="Fotos del producto"/>
+          <PhotoUploader photos={form.photos} onChange={v => set('photos', v)} userId={userId} label="Fotos del producto" tk={tk}/>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Nombre del mueble">
-              <input className={INPUT_CLS} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ej: Placard 3 puertas"/>
+            <Field label="Nombre del mueble" tk={tk}>
+              <input className={inputCls} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ej: Placard 3 puertas"/>
             </Field>
-            <Field label="Categoría">
-              <select className={INPUT_CLS} value={form.category} onChange={e => set('category', e.target.value)}>
+            <Field label="Categoría" tk={tk}>
+              <select className={inputCls} value={form.category} onChange={e => set('category', e.target.value)}>
                 {CATS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Precio">
-              <input className={INPUT_CLS} value={form.price} onChange={e => set('price', e.target.value)} placeholder="Ej: 1.500.000 o Consultar"/>
+            <Field label="Precio" tk={tk}>
+              <input className={inputCls} value={form.price} onChange={e => set('price', e.target.value)} placeholder="Ej: 1.500.000 o Consultar"/>
             </Field>
-            <Field label="Plazo de entrega">
-              <input className={INPUT_CLS} value={form.time} onChange={e => set('time', e.target.value)} placeholder="Ej: 10 días hábiles"/>
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Etiqueta (tag)">
-              <input className={INPUT_CLS} value={form.tag} onChange={e => set('tag', e.target.value)} placeholder="Ej: Más pedido, Premium"/>
-            </Field>
-            <Field label="Dimensiones">
-              <input className={INPUT_CLS} value={form.dims} onChange={e => set('dims', e.target.value)} placeholder="Ej: 2.40 × 2.00 m"/>
+            <Field label="Plazo de entrega" tk={tk}>
+              <input className={inputCls} value={form.time} onChange={e => set('time', e.target.value)} placeholder="Ej: 10 días hábiles"/>
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Material principal">
-              <input className={INPUT_CLS} value={form.wood} onChange={e => set('wood', e.target.value)} placeholder="Ej: MDF enchapado roble"/>
+            <Field label="Etiqueta (tag)" tk={tk}>
+              <input className={inputCls} value={form.tag} onChange={e => set('tag', e.target.value)} placeholder="Ej: Más pedido, Premium"/>
             </Field>
-            <Field label="Terminación">
-              <input className={INPUT_CLS} value={form.finish} onChange={e => set('finish', e.target.value)} placeholder="Ej: Barniz satinado"/>
+            <Field label="Dimensiones" tk={tk}>
+              <input className={inputCls} value={form.dims} onChange={e => set('dims', e.target.value)} placeholder="Ej: 2.40 × 2.00 m"/>
             </Field>
           </div>
-          <Field label="Descripción corta">
-            <textarea className={INPUT_CLS + ' resize-none'} rows={2}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Material principal" tk={tk}>
+              <input className={inputCls} value={form.wood} onChange={e => set('wood', e.target.value)} placeholder="Ej: MDF enchapado roble"/>
+            </Field>
+            <Field label="Terminación" tk={tk}>
+              <input className={inputCls} value={form.finish} onChange={e => set('finish', e.target.value)} placeholder="Ej: Barniz satinado"/>
+            </Field>
+          </div>
+          <Field label="Descripción corta" tk={tk}>
+            <textarea className={inputCls + ' resize-none'} rows={2}
               value={form.description} onChange={e => set('description', e.target.value)}
               placeholder="Una línea sobre el producto..."/>
           </Field>
@@ -361,13 +401,13 @@ function ProductModal({ product, userId, onSave, onClose }) {
               <div className="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all"
                 style={{ left: form.visible ? '22px' : '4px' }}/>
             </div>
-            <span className="text-sm text-zinc-300">
+            <span className={`text-sm ${tk.sub}`}>
               {form.visible ? 'Visible en el catálogo público' : 'Oculto del catálogo'}
             </span>
           </label>
         </div>
-        <div className="flex gap-3 px-6 py-5 border-t border-zinc-800 shrink-0">
-          <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 py-3 text-sm text-zinc-400 hover:bg-zinc-800 transition">Cancelar</button>
+        <div className={`flex gap-3 px-6 py-5 border-t ${tk.border} shrink-0`}>
+          <button onClick={onClose} className={`flex-1 rounded-xl border py-3 text-sm transition ${tk.btnGhost}`}>Cancelar</button>
           <button onClick={handleSave} disabled={!form.name.trim() || busy}
             className="flex-1 rounded-xl bg-amber-500 text-black py-3 text-sm font-bold hover:bg-amber-400 transition disabled:opacity-40 flex items-center justify-center gap-2">
             {busy ? <Loader2 size={15} className="animate-spin"/> : <Save size={14}/>}
@@ -381,17 +421,16 @@ function ProductModal({ product, userId, onSave, onClose }) {
 
 // ─── FOCUS INPUT — componente top-level para no violar reglas de hooks ─────
 
-const INPUT_BASE = 'w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none transition';
-
-function FocusInput({ accent, className, style, ...props }) {
+function FocusInput({ accent, className, style, tk, ...props }) {
   const [focused, setFocused] = useState(false);
   const focusStyle = focused
     ? { borderColor: accent + 'aa', boxShadow: `0 0 0 3px ${accent}18` }
     : {};
+  const base = `w-full rounded-xl border px-4 py-2.5 text-sm outline-none transition ${tk.input}`;
   return (
     <input
       {...props}
-      className={INPUT_BASE + (className ? ' ' + className : '')}
+      className={base + (className ? ' ' + className : '')}
       style={{ ...style, ...focusStyle }}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -402,6 +441,10 @@ function FocusInput({ accent, className, style, ...props }) {
 // ─── PAGE ──────────────────────────────────────────────────────────────────
 
 export default function SalesRoomPage() {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
+  const tk = getTokens(isDark);
+
   const [config,      setConfig]      = useState(DEFAULT_CONFIG);
   const [products,    setProducts]    = useState([]);
   const [collections, setCollections] = useState([]);
@@ -440,7 +483,14 @@ export default function SalesRoomPage() {
 
   async function saveConfig() {
     setSaving(true);
-    const payload = { ...config, owner_id: userId };
+    // Solo se mandan las columnas editables (whitelist de DEFAULT_CONFIG).
+    // config puede traer "id"/"created_at"/etc. desde el select('*') inicial,
+    // y mandarlas de vuelta en el upsert rompe el guardado si alguna no
+    // existe realmente en la tabla o no corresponde escribirla.
+    const payload = {
+      ...Object.fromEntries(Object.keys(DEFAULT_CONFIG).map((k) => [k, config[k]])),
+      owner_id: userId,
+    };
     const { error } = await supabase.from('shop_config').upsert(payload, { onConflict: 'owner_id' });
     setSaving(false);
     if (error) showToast(error.message, 'err');
@@ -479,7 +529,7 @@ export default function SalesRoomPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48 text-zinc-500">
+      <div className={`flex items-center justify-center h-48 ${tk.sub}`}>
         <Loader2 size={24} className="animate-spin mr-3"/> Cargando editor...
       </div>
     );
@@ -560,10 +610,10 @@ export default function SalesRoomPage() {
 
           {/* Tabs de navegación con indicator animado */}
           <div
-            className="rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden"
+            className={`rounded-2xl border overflow-hidden ${tk.card}`}
           >
             {/* Tab bar */}
-            <div className="flex border-b border-zinc-800 relative">
+            <div className={`flex border-b relative ${tk.border}`}>
               {TABS.map((tab) => {
                 const active = activeTab === tab.id;
                 return (
@@ -571,7 +621,7 @@ export default function SalesRoomPage() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className="relative flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-semibold transition-colors"
-                    style={{ color: active ? accent : '#71717a' }}
+                    style={{ color: active ? accent : (isDark ? '#71717a' : '#78716c') }}
                   >
                     <tab.icon size={13}/>
                     {tab.label}
@@ -601,26 +651,26 @@ export default function SalesRoomPage() {
                 {activeTab === 'identidad' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <Field label="Nombre del taller">
-                        <FocusInput accent={accent} value={config.shop_name}
+                      <Field label="Nombre del taller" tk={tk}>
+                        <FocusInput accent={accent} tk={tk} value={config.shop_name}
                           onChange={e => setField('shop_name', e.target.value)} placeholder="Mi Carpintería"/>
                       </Field>
-                      <Field label="Color de acento">
+                      <Field label="Color de acento" tk={tk}>
                         <div className="flex items-center gap-2">
                           <input type="color" value={accent} onChange={e => setField('accent_color', e.target.value)}
-                            className="w-10 h-10 rounded-lg border border-zinc-700 bg-transparent cursor-pointer shrink-0"/>
-                          <FocusInput accent={accent} value={accent} onChange={e => setField('accent_color', e.target.value)}/>
+                            className={`w-10 h-10 rounded-lg border ${tk.borderAlt} bg-transparent cursor-pointer shrink-0`}/>
+                          <FocusInput accent={accent} tk={tk} value={accent} onChange={e => setField('accent_color', e.target.value)}/>
                         </div>
                       </Field>
                     </div>
-                    <Field label="Tagline / frase">
-                      <FocusInput accent={accent} value={config.tagline}
+                    <Field label="Tagline / frase" tk={tk}>
+                      <FocusInput accent={accent} tk={tk} value={config.tagline}
                         onChange={e => setField('tagline', e.target.value)} placeholder="Muebles a medida con materiales de primera"/>
                     </Field>
-                    <Field label="Logo del taller">
-                      <LogoUploader logoUrl={config.logo_url} onChange={v => setField('logo_url', v)} userId={userId}/>
+                    <Field label="Logo del taller" tk={tk}>
+                      <LogoUploader logoUrl={config.logo_url} onChange={v => setField('logo_url', v)} userId={userId} tk={tk}/>
                     </Field>
-                    {/* Preview de identidad en vivo */}
+                    {/* Preview de identidad en vivo — simula el catálogo público (siempre oscuro) */}
                     <div className="rounded-xl p-4 flex items-center gap-4 mt-2"
                       style={{ background:'#0f0d0b', border:`1px solid ${accent}25` }}>
                       <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
@@ -648,23 +698,23 @@ export default function SalesRoomPage() {
                 {activeTab === 'contacto' && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <Field label="WhatsApp / Teléfono">
-                        <FocusInput accent={accent} value={config.phone}
-                          onChange={e => setField('phone', e.target.value)} placeholder="+56 9 1234 5678"/>
+                      <Field label="WhatsApp / Teléfono" tk={tk}>
+                        <FocusInput accent={accent} tk={tk} value={config.phone}
+                          onChange={e => setField('phone', e.target.value)} placeholder="+58 412 1234567"/>
                       </Field>
-                      <Field label="Ciudad / Ubicación">
-                        <FocusInput accent={accent} value={config.city}
+                      <Field label="Ciudad / Ubicación" tk={tk}>
+                        <FocusInput accent={accent} tk={tk} value={config.city}
                           onChange={e => setField('city', e.target.value)} placeholder="Santiago, Chile"/>
                       </Field>
-                      <Field label="Dirección del taller">
-                        <FocusInput accent={accent} value={config.address}
+                      <Field label="Dirección del taller" tk={tk}>
+                        <FocusInput accent={accent} tk={tk} value={config.address}
                           onChange={e => setField('address', e.target.value)} placeholder="Av. Providencia 1234"/>
                       </Field>
                     </div>
-                    <Field label="URL del catálogo (slug)">
+                    <Field label="URL del catálogo (slug)" tk={tk}>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-zinc-600 shrink-0">/catalogo/</span>
-                        <FocusInput accent={accent} value={config.slug || ''}
+                        <span className={`text-xs ${tk.subFaint2} shrink-0`}>/catalogo/</span>
+                        <FocusInput accent={accent} tk={tk} value={config.slug || ''}
                           onChange={e => setField('slug', e.target.value)} placeholder="mi-carpinteria" className="flex-1"/>
                       </div>
                     </Field>
@@ -674,26 +724,26 @@ export default function SalesRoomPage() {
                 {activeTab === 'estadisticas' && (
                   <div className="grid sm:grid-cols-2 gap-6">
                     <div>
-                      <p className="text-xs text-zinc-500 mb-3 uppercase tracking-wider">Números del taller</p>
+                      <p className={`text-xs ${tk.subFaint} mb-3 uppercase tracking-wider`}>Números del taller</p>
                       <div className="space-y-2">
                         {(config.stats || []).map((s, i) => (
                           <div key={i} className="flex gap-2">
-                            <FocusInput accent={accent} className="w-20 text-center font-bold"
+                            <FocusInput accent={accent} tk={tk} className="w-20 text-center font-bold"
                               value={s.value} onChange={e => setStat(i, 'value', e.target.value)} placeholder="120+"/>
-                            <FocusInput accent={accent} value={s.label} onChange={e => setStat(i, 'label', e.target.value)} placeholder="Proyectos entregados"/>
+                            <FocusInput accent={accent} tk={tk} value={s.label} onChange={e => setStat(i, 'label', e.target.value)} placeholder="Proyectos entregados"/>
                           </div>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <p className="text-xs text-zinc-500 mb-3 uppercase tracking-wider">Garantías / bullets</p>
+                      <p className={`text-xs ${tk.subFaint} mb-3 uppercase tracking-wider`}>Garantías / bullets</p>
                       <div className="space-y-2">
                         {(config.guarantees || []).map((g, i) => (
                           <div key={i} className="flex gap-2 items-center">
-                            <FocusInput accent={accent} value={g}
+                            <FocusInput accent={accent} tk={tk} value={g}
                               onChange={e => setGuarantee(i, e.target.value)} placeholder="Ej: Sin adelanto"/>
                             <button onClick={() => removeGuarantee(i)}
-                              className="p-2 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition shrink-0">
+                              className={`p-2 rounded-lg ${tk.subFaint2} hover:text-red-400 hover:bg-red-500/10 transition shrink-0`}>
                               <Trash2 size={14}/>
                             </button>
                           </div>
@@ -716,41 +766,41 @@ export default function SalesRoomPage() {
         <div className="space-y-4">
 
           {/* ── COLECCIONES ─────────────────────────── */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-            <SectionTitle icon={Images} label="Colecciones / Trabajos realizados"/>
-            <p className="text-xs text-zinc-500 mb-4 -mt-2">Galerías de fotos de proyectos terminados. Se muestran como inspiración en tu catálogo.</p>
+          <div className={`rounded-2xl border p-6 ${tk.card}`}>
+            <SectionTitle icon={Images} label="Colecciones / Trabajos realizados" tk={tk}/>
+            <p className={`text-xs ${tk.subFaint} mb-4 -mt-2`}>Galerías de fotos de proyectos terminados. Se muestran como inspiración en tu catálogo.</p>
 
             <div className="space-y-2 mb-4 max-h-64 overflow-y-auto pr-1">
               {collections.length === 0 && (
-                <div className="rounded-xl border border-dashed border-zinc-700 p-5 text-center text-zinc-600 text-sm">
+                <div className={`rounded-xl border border-dashed ${tk.dashed} p-5 text-center ${tk.subFaint2} text-sm`}>
                   Sin colecciones. Agregá fotos de tus trabajos.
                 </div>
               )}
               {collections.map((c) => (
                 <motion.div key={c.id} layout
-                  className="rounded-xl border border-zinc-700 bg-zinc-800 p-3 flex items-center gap-3">
+                  className={`rounded-xl border p-3 flex items-center gap-3 ${tk.cardAlt}`}>
                   {/* Miniatura grid */}
-                  <div className="w-14 h-14 rounded-lg overflow-hidden border border-zinc-700 shrink-0 bg-zinc-700 grid grid-cols-2 gap-px">
+                  <div className={`w-14 h-14 rounded-lg overflow-hidden border ${tk.borderAlt} shrink-0 ${isDark ? 'bg-zinc-700' : 'bg-stone-200'} grid grid-cols-2 gap-px`}>
                     {c.photos?.slice(0,4).map((url, i) => (
                       <img key={i} src={url} alt="" className="w-full h-full object-cover"/>
                     ))}
                     {(c.photos?.length || 0) === 0 && (
                       <div className="col-span-2 row-span-2 flex items-center justify-center">
-                        <Images size={16} className="text-zinc-600"/>
+                        <Images size={16} className={tk.subFaint2}/>
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{c.title || 'Sin título'}</p>
-                    <p className="text-xs text-zinc-500">{c.photos?.length || 0} foto{c.photos?.length !== 1 ? 's' : ''}</p>
+                    <p className={`text-sm font-semibold truncate ${tk.text}`}>{c.title || 'Sin título'}</p>
+                    <p className={`text-xs ${tk.subFaint}`}>{c.photos?.length || 0} foto{c.photos?.length !== 1 ? 's' : ''}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => setEditC(c)}
-                      className="p-1.5 rounded-lg hover:bg-zinc-700 transition text-zinc-500 hover:text-amber-400">
+                      className={`p-1.5 rounded-lg ${tk.hoverRow} transition ${tk.subFaint} hover:text-amber-400`}>
                       <Pencil size={13}/>
                     </button>
                     <button onClick={() => deleteCollection(c.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-500/10 transition text-zinc-500 hover:text-red-400">
+                      className={`p-1.5 rounded-lg hover:bg-red-500/10 transition ${tk.subFaint} hover:text-red-400`}>
                       <Trash2 size={13}/>
                     </button>
                   </div>
@@ -759,51 +809,51 @@ export default function SalesRoomPage() {
             </div>
 
             <button onClick={() => setEditC(null)}
-              className="w-full rounded-xl border border-dashed border-zinc-700 py-3 text-sm text-zinc-500 hover:border-amber-500/50 hover:text-amber-500 transition flex items-center justify-center gap-2">
+              className={`w-full rounded-xl border border-dashed ${tk.dashed} py-3 text-sm ${tk.subFaint} hover:border-amber-500/50 hover:text-amber-500 transition flex items-center justify-center gap-2`}>
               <Plus size={15}/> Nueva colección
             </button>
           </div>
 
           {/* ── PRODUCTOS ───────────────────────────── */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
-            <SectionTitle icon={Package} label="Productos con precio (venta directa)"/>
-            <p className="text-xs text-zinc-500 mb-4 -mt-2">Muebles con precio, plazo y botón de cotización. El cliente puede consultar desde el catálogo.</p>
+          <div className={`rounded-2xl border p-6 ${tk.card}`}>
+            <SectionTitle icon={Package} label="Productos con precio (venta directa)" tk={tk}/>
+            <p className={`text-xs ${tk.subFaint} mb-4 -mt-2`}>Muebles con precio, plazo y botón de cotización. El cliente puede consultar desde el catálogo.</p>
 
             <div className="space-y-2 mb-4 max-h-64 overflow-y-auto pr-1">
               {products.length === 0 && (
-                <div className="rounded-xl border border-dashed border-zinc-700 p-5 text-center text-zinc-600 text-sm">
+                <div className={`rounded-xl border border-dashed ${tk.dashed} p-5 text-center ${tk.subFaint2} text-sm`}>
                   Sin productos. Agregá el primero.
                 </div>
               )}
               {products.map((p) => (
                 <motion.div key={p.id} layout
-                  className="rounded-xl border bg-zinc-800 p-3 flex items-center gap-3"
-                  style={{ borderColor: p.visible ? '#3d3528' : '#27272a' }}>
-                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-zinc-700 shrink-0 bg-zinc-700">
+                  className={`rounded-xl border p-3 flex items-center gap-3 ${tk.cardAlt}`}
+                  style={{ borderColor: p.visible ? undefined : (isDark ? '#27272a' : '#d6d3d1') }}>
+                  <div className={`w-12 h-12 rounded-lg overflow-hidden border ${tk.borderAlt} shrink-0 ${isDark ? 'bg-zinc-700' : 'bg-stone-200'}`}>
                     {p.photos?.[0]
                       ? <img src={p.photos[0]} alt="" className="w-full h-full object-cover"/>
-                      : <div className="w-full h-full flex items-center justify-center"><Hammer size={16} className="text-zinc-600"/></div>
+                      : <div className="w-full h-full flex items-center justify-center"><Hammer size={16} className={tk.subFaint2}/></div>
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{p.name || 'Sin nombre'}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className={`text-sm font-semibold truncate ${tk.text}`}>{p.name || 'Sin nombre'}</p>
+                    <p className={`text-xs ${tk.subFaint}`}>
                       {p.category} · {p.price}
                       {p.photos?.length > 0 && <span className="ml-2 text-amber-600">{p.photos.length} foto{p.photos.length>1?'s':''}</span>}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => toggleVisible(p)}
-                      className="p-1.5 rounded-lg hover:bg-zinc-700 transition"
-                      style={{ color: p.visible ? '#c8923a' : '#52525b' }}>
+                      className={`p-1.5 rounded-lg ${tk.hoverRow} transition`}
+                      style={{ color: p.visible ? '#c8923a' : (isDark ? '#52525b' : '#a8a29e') }}>
                       {p.visible ? <Eye size={13}/> : <EyeOff size={13}/>}
                     </button>
                     <button onClick={() => setEditP(p)}
-                      className="p-1.5 rounded-lg hover:bg-zinc-700 transition text-zinc-500 hover:text-amber-400">
+                      className={`p-1.5 rounded-lg ${tk.hoverRow} transition ${tk.subFaint} hover:text-amber-400`}>
                       <Pencil size={13}/>
                     </button>
                     <button onClick={() => deleteProduct(p.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-500/10 transition text-zinc-500 hover:text-red-400">
+                      className={`p-1.5 rounded-lg hover:bg-red-500/10 transition ${tk.subFaint} hover:text-red-400`}>
                       <Trash2 size={13}/>
                     </button>
                   </div>
@@ -812,13 +862,13 @@ export default function SalesRoomPage() {
             </div>
 
             <button onClick={() => setEditP(null)}
-              className="w-full rounded-xl border border-dashed border-zinc-700 py-3 text-sm text-zinc-500 hover:border-amber-500/50 hover:text-amber-500 transition flex items-center justify-center gap-2">
+              className={`w-full rounded-xl border border-dashed ${tk.dashed} py-3 text-sm ${tk.subFaint} hover:border-amber-500/50 hover:text-amber-500 transition flex items-center justify-center gap-2`}>
               <Plus size={15}/> Agregar producto
             </button>
 
             {catalogUrl && (
               <a href={catalogUrl} target="_blank" rel="noopener noreferrer"
-                className="mt-3 w-full rounded-xl bg-zinc-800 border border-zinc-700 py-3 text-sm text-zinc-400 hover:text-white hover:bg-zinc-700 transition flex items-center justify-center gap-2">
+                className={`mt-3 w-full rounded-xl ${tk.cardAlt} border py-3 text-sm ${tk.sub} hover:${tk.text} ${tk.hoverRow} transition flex items-center justify-center gap-2`}>
                 <ExternalLink size={14}/> Abrir catálogo: /catalogo/{slug}
               </a>
             )}
@@ -829,10 +879,10 @@ export default function SalesRoomPage() {
       {/* MODALES Y TOAST */}
       <AnimatePresence>
         {editP !== undefined && userId && (
-          <ProductModal product={editP} userId={userId} onSave={loadAll} onClose={() => setEditP(undefined)}/>
+          <ProductModal product={editP} userId={userId} onSave={loadAll} onClose={() => setEditP(undefined)} tk={tk}/>
         )}
         {editC !== undefined && userId && (
-          <CollectionModal collection={editC} userId={userId} onSave={loadAll} onClose={() => setEditC(undefined)}/>
+          <CollectionModal collection={editC} userId={userId} onSave={loadAll} onClose={() => setEditC(undefined)} tk={tk}/>
         )}
         {toast && <Toast msg={toast.msg} type={toast.type}/>}
       </AnimatePresence>

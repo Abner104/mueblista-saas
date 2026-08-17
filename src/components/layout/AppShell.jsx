@@ -1,13 +1,14 @@
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, Scissors, Boxes,
-  Truck, Briefcase, ClipboardList, LogOut, ExternalLink,
-  Sun, Moon, Inbox, Menu, X, HardHat, CreditCard,
+  Truck, ClipboardList, LogOut, ExternalLink,
+  Sun, Moon, Inbox, Menu, X, HardHat, Settings,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
+import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
 // Items que aparecen en el bottom nav móvil (los más usados)
@@ -20,18 +21,18 @@ const BOTTOM_NAV = [
 ];
 
 // Todos los items (sidebar desktop + drawer móvil)
+// Suscripción y Editor de catálogo no van acá — viven dentro de
+// Configuración (/app/configuracion) para no saturar el menú principal.
 const NAV_ITEMS = [
   { to: '/app',             label: 'Dashboard',         icon: LayoutDashboard, badge: null },
   { to: '/app/clientes',    label: 'Clientes',           icon: Users,           badge: null },
   { to: '/app/leads',       label: 'Consultas',          icon: Inbox,           badge: 'leads' },
   { to: '/app/cotizaciones',label: 'Cotizaciones',       icon: FileText,        badge: 'quotes' },
-  { to: '/app/cortes',      label: 'Cortes',             icon: Scissors,        badge: null },
+  { to: '/app/cortes',      label: 'Cortes',             icon: Scissors,        badge: null, requires: 'can_use_optimizer' },
   { to: '/app/inventario',  label: 'Inventario',         icon: Boxes,           badge: 'stock' },
   { to: '/app/proveedores',  label: 'Proveedores',        icon: Truck,           badge: null },
-  { to: '/app/ventas',       label: 'Editor de catálogo', icon: Briefcase,       badge: null },
   { to: '/app/ordenes',      label: 'Órdenes',            icon: ClipboardList,   badge: 'orders' },
   { to: '/app/trabajadores', label: 'Equipo',             icon: HardHat,         badge: null },
-  { to: '/app/billing',     label: 'Suscripción',        icon: CreditCard,      badge: null },
 ];
 
 const pageVariants = {
@@ -66,6 +67,17 @@ export default function AppShell() {
   const [slug, setSlug] = useState('');
   const [badges, setBadges] = useState({ leads: 0, quotes: 0, stock: 0, orders: 0 });
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const { limits, load: loadSubscription } = useSubscriptionStore();
+  useEffect(() => {
+    if (user?.id) loadSubscription(user.id);
+  }, [user?.id]);
+
+  // Oculta ítems del menú que el plan del taller no incluye (ej: Cortes sin can_use_optimizer)
+  const navItems = useMemo(
+    () => NAV_ITEMS.filter((item) => !item.requires || limits?.[item.requires]),
+    [limits]
+  );
 
   // Aplica clase en <html> para Tailwind dark mode
   useEffect(() => {
@@ -212,7 +224,7 @@ export default function AppShell() {
           </div>
 
           <nav className="space-y-1 flex-1">
-            {NAV_ITEMS.map((item) => <NavItem key={item.to} {...item} />)}
+            {navItems.map((item) => <NavItem key={item.to} {...item} />)}
           </nav>
 
           {slug && (
@@ -233,13 +245,22 @@ export default function AppShell() {
                 <div className={`text-sm ${tk.sessionTxt}`}>Sesión</div>
                 <div className={`text-sm font-medium break-all ${tk.text}`}>{user?.email}</div>
               </div>
-              <button
-                onClick={toggle}
-                title={isDark ? 'Modo claro' : 'Modo oscuro'}
-                className={`rounded-xl p-2 transition ${tk.toggle}`}
-              >
-                {isDark ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Link
+                  to="/app/configuracion"
+                  title="Configuración"
+                  className={`rounded-xl p-2 transition ${tk.toggle}`}
+                >
+                  <Settings size={16} />
+                </Link>
+                <button
+                  onClick={toggle}
+                  title={isDark ? 'Modo claro' : 'Modo oscuro'}
+                  className={`rounded-xl p-2 transition ${tk.toggle}`}
+                >
+                  {isDark ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+              </div>
             </div>
             <button
               onClick={handleLogout}
@@ -365,7 +386,7 @@ export default function AppShell() {
 
               {/* Nav items */}
               <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                {NAV_ITEMS.map((item) => <NavItem key={item.to} {...item} />)}
+                {navItems.map((item) => <NavItem key={item.to} {...item} />)}
                 {slug && (
                   <a
                     href={`/catalogo/${slug}`}
@@ -383,9 +404,19 @@ export default function AppShell() {
               {/* Sesión + logout */}
               <div className={`p-4 border-t ${isDark ? 'border-zinc-800' : 'border-stone-200'}`}>
                 <div className={`rounded-2xl ${tk.session} p-4 border space-y-3`}>
-                  <div>
-                    <div className={`text-xs ${tk.sessionTxt}`}>Sesión activa</div>
-                    <div className={`text-sm font-medium break-all mt-0.5 ${tk.text}`}>{user?.email}</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className={`text-xs ${tk.sessionTxt}`}>Sesión activa</div>
+                      <div className={`text-sm font-medium break-all mt-0.5 ${tk.text}`}>{user?.email}</div>
+                    </div>
+                    <Link
+                      to="/app/configuracion"
+                      onClick={() => setDrawerOpen(false)}
+                      title="Configuración"
+                      className={`rounded-xl p-2 transition shrink-0 ${tk.toggle}`}
+                    >
+                      <Settings size={16} />
+                    </Link>
                   </div>
                   <button
                     onClick={handleLogout}

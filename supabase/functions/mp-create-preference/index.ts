@@ -22,7 +22,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { owner_id, owner_email, plan, price } = await req.json();
+    const { owner_id, owner_email, plan, price, currency } = await req.json();
 
     if (!owner_id || !owner_email || !plan || !price) {
       return new Response(
@@ -49,7 +49,7 @@ serve(async (req: Request) => {
           title: `Carpento Plan Pro — Suscripción mensual`,
           description: 'Productos ilimitados, Optimizador CNC, Equipo con roles, PDF profesional',
           quantity: 1,
-          currency_id: 'ARS',
+          currency_id: currency || 'CLP',
           unit_price: price,
         },
       ],

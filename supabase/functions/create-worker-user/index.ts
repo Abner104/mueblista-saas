@@ -11,19 +11,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: corsHeaders })
-    }
-
     const { email, password, worker_id, worker_name, owner_id } = await req.json()
 
     if (!email || !password || !worker_id || !owner_id) {
-      return new Response(JSON.stringify({ error: 'Faltan campos requeridos' }), { status: 400, headers: corsHeaders })
+      return new Response(
+        JSON.stringify({ error: 'Faltan campos requeridos' }),
+        { status: 400, headers: corsHeaders },
+      )
     }
 
     if (password.length < 6) {
-      return new Response(JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres' }), { status: 400, headers: corsHeaders })
+      return new Response(
+        JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres' }),
+        { status: 400, headers: corsHeaders },
+      )
     }
 
     const admin = createClient(
@@ -38,7 +39,10 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (workerErr || !workerRow || workerRow.owner_id !== owner_id) {
-      return new Response(JSON.stringify({ error: 'No tenés permiso para este trabajador' }), { status: 403, headers: corsHeaders })
+      return new Response(
+        JSON.stringify({ error: 'No tenés permiso para este trabajador' }),
+        { status: 403, headers: corsHeaders },
+      )
     }
 
     const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
@@ -49,7 +53,10 @@ Deno.serve(async (req) => {
     })
 
     if (createErr) {
-      return new Response(JSON.stringify({ error: createErr.message }), { status: 400, headers: corsHeaders })
+      return new Response(
+        JSON.stringify({ error: createErr.message }),
+        { status: 400, headers: corsHeaders },
+      )
     }
 
     await admin
