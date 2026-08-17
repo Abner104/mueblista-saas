@@ -7,6 +7,8 @@ import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
 import QuoteForm from '../components/quotes/QuoteForm';
+import { formatCurrency, formatDate } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 const STATUS_COLORS_DARK  = { draft:'bg-zinc-700/60 text-zinc-300', sent:'bg-amber-500/20 text-amber-300', approved:'bg-emerald-500/20 text-emerald-300', rejected:'bg-red-500/20 text-red-300' };
 const STATUS_COLORS_LIGHT = { draft:'bg-zinc-200 text-zinc-600',    sent:'bg-amber-100 text-amber-700',    approved:'bg-emerald-100 text-emerald-700',    rejected:'bg-red-100 text-red-700'       };
@@ -14,10 +16,11 @@ const STATUS_LABELS  = { draft:'Borrador', sent:'Enviada', approved:'Aprobada', 
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS);
 
 // ── PDF ───────────────────────────────────────────────────────────
-async function generatePDF(quote) {
+async function generatePDF(quote, country) {
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   const W   = doc.internal.pageSize.getWidth();
   const OAK = [200, 146, 58];
+  const money = (v) => formatCurrency(v, country);
 
   doc.setFillColor(...OAK);
   doc.rect(0, 0, W, 28, 'F');
@@ -26,7 +29,7 @@ async function generatePDF(quote) {
   doc.text('COTIZACIÓN', 14, 12);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
   doc.text(`N° ${quote.id.slice(0,8).toUpperCase()}`, 14, 20);
-  const dateStr = new Date(quote.created_at).toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+  const dateStr = formatDate(quote.created_at, country);
   doc.text(dateStr, W-14, 12, { align:'right' });
   doc.text(`Estado: ${STATUS_LABELS[quote.status] || quote.status}`, W-14, 20, { align:'right' });
 
@@ -42,7 +45,7 @@ async function generatePDF(quote) {
 
   doc.setDrawColor(...OAK); doc.setLineWidth(0.5); doc.line(14,67,W-14,67);
 
-  const items = (quote.quote_items||[]).map(i=>[i.description,`${Number(i.quantity)} ${i.unit}`,`$${Number(i.unit_cost).toLocaleString('es-AR')}`,`$${Number(i.total_cost).toLocaleString('es-AR')}`]);
+  const items = (quote.quote_items||[]).map(i=>[i.description,`${Number(i.quantity)} ${i.unit}`,money(i.unit_cost),money(i.total_cost)]);
   if (items.length>0) {
     autoTable(doc,{ startY:72, head:[['Material','Cantidad','P. Unit.','Total']], body:items, theme:'striped',
       headStyles:{ fillColor:OAK, textColor:255, fontStyle:'bold', fontSize:10 },
@@ -61,25 +64,26 @@ async function generatePDF(quote) {
     doc.setTextColor(...(bold?OAK:[90,90,90])); doc.text(value,boxX+75,y,{align:'right'});
   };
   const mat=(quote.quote_items||[]).reduce((s,i)=>s+Number(i.total_cost),0);
-  row('Materiales',`$${mat.toLocaleString('es-AR')}`,finalY+10);
-  row('Mano de obra',`$${Number(quote.labor_cost).toLocaleString('es-AR')}`,finalY+19);
-  row('Costos extra',`$${Number(quote.extra_cost).toLocaleString('es-AR')}`,finalY+28);
+  row('Materiales',money(mat),finalY+10);
+  row('Mano de obra',money(quote.labor_cost),finalY+19);
+  row('Costos extra',money(quote.extra_cost),finalY+28);
   doc.setDrawColor(200,200,200); doc.line(boxX+5,finalY+32,boxX+75,finalY+32);
-  row('Subtotal',`$${Number(quote.subtotal).toLocaleString('es-AR')}`,finalY+38);
+  row('Subtotal',money(quote.subtotal),finalY+38);
   doc.setDrawColor(...OAK); doc.line(boxX+5,finalY+42,boxX+75,finalY+42);
-  row('TOTAL',`$${Number(quote.total).toLocaleString('es-AR')}`,finalY+50,true);
+  row('TOTAL',money(quote.total),finalY+50,true);
 
   const pageH=doc.internal.pageSize.getHeight();
   doc.setFontSize(8); doc.setTextColor(160,160,160);
-  doc.text('Generado con WoodFlow · Cotización válida por 15 días',W/2,pageH-10,{align:'center'});
+  doc.text('Generado con Carpento · Cotización válida por 15 días',W/2,pageH-10,{align:'center'});
   doc.save(`cotizacion-${quote.id.slice(0,8)}.pdf`);
 }
 
 // ── Modal detalle ─────────────────────────────────────────────────
-function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark }) {
+function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark, country }) {
   const [status,      setStatus]      = useState(quote.status);
   const [updating,    setUpdating]    = useState(false);
   const [confirmApprove, setConfirmApprove] = useState(false);
+  const [confirmRevert,  setConfirmRevert]  = useState(false);
   const SC = isDark ? STATUS_COLORS_DARK : STATUS_COLORS_LIGHT;
 
   async function saveStatus(v) {
@@ -109,6 +113,7 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
       await supabase.from('sales').insert({
         owner_id: user.id,
         quote_id: quote.id,
+        client_id: quote.client_id,
         status: 'confirmed',
         amount: Number(quote.total),
         payment_status: 'unpaid',
@@ -130,12 +135,19 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
           note: `Cotización rechazada (reversión): ${quote.title}`,
         });
       }
+
+      // Borrar la orden que se creó al aprobar — solo si sigue en su
+      // estado inicial. Si ya avanzó a producción o más, hay trabajo
+      // real en curso y no se toca automáticamente (queda a mano del
+      // dueño resolverlo desde Órdenes).
+      await supabase.from('sales').delete().eq('quote_id', quote.id).eq('status', 'confirmed');
     }
 
     setStatus(v);
     onStatusChange(quote.id, v);
     setUpdating(false);
     setConfirmApprove(false);
+    setConfirmRevert(false);
   }
 
   return (
@@ -176,7 +188,7 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
               {quote.quote_items.map(item=>(
                 <div key={item.id} className="flex justify-between text-sm">
                   <span className={tk.text}>{item.description} <span className={tk.sub}>× {item.quantity} {item.unit}</span></span>
-                  <span className="text-amber-500 font-medium">${Number(item.total_cost).toLocaleString('es-AR')}</span>
+                  <span className="text-amber-500 font-medium">{formatCurrency(item.total_cost, country)}</span>
                 </div>
               ))}
             </div>
@@ -187,14 +199,14 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
         <div className={`px-6 py-4 space-y-2 border-b ${tk.border}`}>
           {[['Mano de obra',quote.labor_cost],['Costos extra',quote.extra_cost]].map(([l,v])=>(
             <div key={l} className={`flex justify-between text-sm ${tk.sub}`}>
-              <span>{l}</span><span>${Number(v).toLocaleString('es-AR')}</span>
+              <span>{l}</span><span>{formatCurrency(v, country)}</span>
             </div>
           ))}
           <div className={`flex justify-between text-sm pt-1 border-t ${tk.border} ${tk.sub}`}>
-            <span>Subtotal</span><span>${Number(quote.subtotal).toLocaleString('es-AR')}</span>
+            <span>Subtotal</span><span>{formatCurrency(quote.subtotal, country)}</span>
           </div>
           <div className={`flex justify-between text-xl font-bold pt-2 border-t border-amber-500/30 ${tk.text}`}>
-            <span>Total</span><span className="text-amber-500">${Number(quote.total).toLocaleString('es-AR')}</span>
+            <span>Total</span><span className="text-amber-500">{formatCurrency(quote.total, country)}</span>
           </div>
         </div>
 
@@ -228,6 +240,26 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
                 </button>
               </div>
             </div>
+          ) : confirmRevert ? (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-4 space-y-3">
+              <p className={`text-sm font-semibold ${tk.text}`}>¿Revertir la aprobación?</p>
+              <ul className={`text-xs space-y-1 ${tk.sub}`}>
+                <li>• Se devolverán los materiales al inventario</li>
+                <li>• Se eliminará la orden creada, solo si sigue sin iniciar producción</li>
+                <li>• Si la orden ya avanzó (en producción, entregada), no se toca — hay que cerrarla manualmente desde Órdenes</li>
+              </ul>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveStatus('rejected')} disabled={updating}
+                  className="flex-1 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-black font-bold rounded-xl py-2 text-sm transition">
+                  {updating ? 'Procesando…' : 'Confirmar reversión'}
+                </button>
+                <button onClick={() => setConfirmRevert(false)}
+                  className={`px-4 rounded-xl border text-sm ${tk.input} transition`}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {status !== 'sent' && (
@@ -249,7 +281,7 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
                 </button>
               )}
               {status === 'approved' && (
-                <button onClick={() => saveStatus('rejected')} disabled={updating}
+                <button onClick={() => setConfirmRevert(true)} disabled={updating}
                   className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl px-3 py-2 text-sm font-medium transition">
                   Revertir aprobación
                 </button>
@@ -266,7 +298,7 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
 
         {/* Acciones */}
         <div className="px-6 py-4 flex flex-wrap gap-3">
-          <button onClick={()=>generatePDF(quote)}
+          <button onClick={()=>generatePDF(quote, country)}
             className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition">
             <Download size={14}/> Descargar PDF
           </button>
@@ -275,7 +307,7 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
               `Hola ${quote.clients.name}, te envío la cotización para *${quote.title}*.\n\n` +
               `• Tipo: ${quote.furniture_type}\n` +
               `• Dimensiones: ${quote.width_mm}×${quote.height_mm}×${quote.depth_mm}mm\n` +
-              `• Total: $${Number(quote.total).toLocaleString('es-AR')}\n\n` +
+              `• Total: ${formatCurrency(quote.total, country)}\n\n` +
               `Cualquier consulta estoy disponible.`)}`}
               target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition">
@@ -297,6 +329,7 @@ export default function QuotesPage() {
   const location  = useLocation();
   const { theme } = useThemeStore();
   const isDark    = theme === 'dark';
+  const country   = useShopCountry();
 
   const tk = isDark ? {
     bg:     'bg-zinc-950',
@@ -445,11 +478,11 @@ export default function QuotesPage() {
                   {STATUS_LABELS[q.status]}
                 </span>
                 <div className="text-right shrink-0">
-                  <p className={`font-bold ${tk.text}`}>${Number(q.total).toLocaleString('es-AR')}</p>
-                  <p className={`text-xs ${tk.sub}`}>{new Date(q.created_at).toLocaleDateString('es-AR')}</p>
+                  <p className={`font-bold ${tk.text}`}>{formatCurrency(q.total, country)}</p>
+                  <p className={`text-xs ${tk.sub}`}>{formatDate(q.created_at, country, { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                 </div>
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition shrink-0 hidden sm:flex">
-                  <button onClick={e=>{ e.stopPropagation(); generatePDF(q); }}
+                  <button onClick={e=>{ e.stopPropagation(); generatePDF(q, country); }}
                     className={`p-2 rounded-xl hover:bg-amber-500/10 ${tk.sub} hover:text-amber-500 transition`}>
                     <Download size={15}/>
                   </button>
@@ -474,6 +507,7 @@ export default function QuotesPage() {
             onDelete={handleDelete}
             tk={tk}
             isDark={isDark}
+            country={country}
           />
         )}
       </AnimatePresence>

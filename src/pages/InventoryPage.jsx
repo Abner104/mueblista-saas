@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
+import { formatCurrency } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 // ── Constantes ────────────────────────────────────────────────────
 const CATEGORIES = ['melamina', 'herraje', 'canto', 'corredera', 'tornillería', 'vidrio', 'iluminación', 'otro'];
@@ -339,6 +341,7 @@ function MovementModal({ materials, onClose, onSaved, isDark }) {
 export default function InventoryPage() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const country = useShopCountry();
 
   const [materials, setMaterials] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -444,7 +447,7 @@ export default function InventoryPage() {
           { label: 'Materiales',   value: materials.length,                     icon: Boxes,         color: 'text-blue-400',   bg: isDark ? 'bg-blue-500/10' : 'bg-blue-50' },
           { label: 'Stock bajo',   value: lowStockCount,                        icon: AlertTriangle, color: 'text-red-400',    bg: isDark ? 'bg-red-500/10' : 'bg-red-50' },
           { label: 'Proveedores',  value: suppliers.length,                     icon: TrendingUp,    color: 'text-violet-400', bg: isDark ? 'bg-violet-500/10' : 'bg-violet-50' },
-          { label: 'Valor total',  value: `$${totalValue.toLocaleString('es-AR')}`, icon: TrendingDown, color: 'text-emerald-400', bg: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
+          { label: 'Valor total',  value: formatCurrency(totalValue, country), icon: TrendingDown, color: 'text-emerald-400', bg: isDark ? 'bg-emerald-500/10' : 'bg-emerald-50' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className={`rounded-2xl border p-5 ${tk.kpi}`}>
             <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center mb-3`}>
@@ -533,7 +536,7 @@ export default function InventoryPage() {
 
                     {/* Costo */}
                     <div className="text-right w-20">
-                      <p className={`text-sm font-medium ${tk.text}`}>${Number(mat.cost).toLocaleString('es-AR')}</p>
+                      <p className={`text-sm font-medium ${tk.text}`}>{formatCurrency(mat.cost, country)}</p>
                       <p className={`text-[10px] ${tk.sub}`}>/{mat.unit}</p>
                     </div>
 

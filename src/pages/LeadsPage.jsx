@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
+import { formatDate } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 const STATUS = {
   new:       { label: 'Nuevo',      color: 'bg-amber-500/20 text-amber-300',   icon: Clock },
@@ -22,7 +24,7 @@ const STATUS_LIGHT = {
   closed:    'bg-emerald-100 text-emerald-700',
 };
 
-function LeadDetailModal({ lead, onClose, onStatusChange, onConvertQuote, onDelete, isDark }) {
+function LeadDetailModal({ lead, onClose, onStatusChange, onConvertQuote, onDelete, isDark, country }) {
   const [status, setStatus] = useState(lead.status);
   const [saving, setSaving] = useState(false);
 
@@ -92,7 +94,7 @@ function LeadDetailModal({ lead, onClose, onStatusChange, onConvertQuote, onDele
             </div>
           )}
           <p className={`text-xs ${tk.sub}`}>
-            Recibido: {new Date(lead.created_at).toLocaleString('es-AR')}
+            Recibido: {formatDate(lead.created_at, country, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
 
@@ -135,6 +137,7 @@ export default function LeadsPage() {
   const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const country = useShopCountry();
 
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -273,7 +276,7 @@ export default function LeadsPage() {
 
                   {/* Fecha */}
                   <p className={`text-xs shrink-0 hidden sm:block ${tk.sub}`}>
-                    {new Date(lead.created_at).toLocaleDateString('es-AR')}
+                    {formatDate(lead.created_at, country, { day: '2-digit', month: 'short', year: '2-digit' })}
                   </p>
                 </motion.div>
               );
@@ -292,6 +295,7 @@ export default function LeadsPage() {
             onConvertQuote={handleConvertQuote}
             onDelete={handleDelete}
             isDark={isDark}
+            country={country}
           />
         )}
       </AnimatePresence>

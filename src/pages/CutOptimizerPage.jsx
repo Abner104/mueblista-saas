@@ -8,13 +8,17 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { optimizeCuts } from '../lib/cutOptimizer';
 import { useThemeStore } from '../store/themeStore';
+import { useSubscriptionStore } from '../store/subscriptionStore';
+import { formatDate } from '../lib/formatters';
 
-// ── Planchas estándar de melamina ─────────────────────────────────
+// ── Planchas estándar ──────────────────────────────────────────────
 const STANDARD_SHEETS = [
   { label: 'Melamina estándar 1830×2440',  w: 1830, h: 2440 },
   { label: 'Melamina 2100×2750',           w: 2100, h: 2750 },
   { label: 'MDF 1220×2440',                w: 1220, h: 2440 },
   { label: 'Plywood 1220×2440',            w: 1220, h: 2440 },
+  { label: 'Drywall 1220×2440 (4×8 pies)', w: 1220, h: 2440 },
+  { label: 'Drywall 1220×3050 (4×10 pies)',w: 1220, h: 3050 },
   { label: 'Vidrio 1000×2000',             w: 1000, h: 2000 },
   { label: 'Personalizado',                w: null,  h: null  },
 ];
@@ -153,6 +157,7 @@ function PieceRow({ piece, index, onChange, onDelete, isDark }) {
 export default function CutOptimizerPage() {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const { limits, loading: subLoading, country } = useSubscriptionStore();
 
   // Plancha
   const [sheetPreset, setSheetPreset]   = useState(0);
@@ -238,7 +243,7 @@ export default function CutOptimizerPage() {
     doc.setFontSize(16); doc.setFont('helvetica', 'bold');
     doc.text('PLANO DE CORTES', 14, 11);
     doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`, 14, 19);
+    doc.text(`Generado: ${formatDate(new Date(), country, { day: '2-digit', month: 'short', year: 'numeric' })}`, 14, 19);
     doc.text(`Plancha: ${sheetWidth}×${sheetHeight}mm`, W - 14, 19, { align: 'right' });
 
     // Resumen
@@ -330,6 +335,18 @@ export default function CutOptimizerPage() {
 
   const inpCls = `w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition ${tk.input}`;
   const selCls = `w-full appearance-none rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:border-amber-500 ${tk.sel}`;
+
+  if (!subLoading && !limits?.can_use_optimizer) {
+    return (
+      <div className={`rounded-3xl border ${tk.card} flex flex-col items-center justify-center py-24 gap-3 text-center px-6`}>
+        <Scissors size={40} strokeWidth={1} className={tk.sub} />
+        <p className={`font-semibold ${tk.text}`}>El optimizador de cortes no está disponible en tu plan</p>
+        <p className={`text-sm max-w-sm ${tk.sub}`}>
+          Esta herramienta está pensada para corte de planchas rígidas (melamina, MDF). Hablá con soporte si creés que deberías tener acceso.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

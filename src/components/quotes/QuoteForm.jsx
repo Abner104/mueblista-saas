@@ -4,12 +4,15 @@ import { Trash2, ChevronDown, Search, FileText, Package } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { calculateQuote } from '../../lib/quoteCalculator';
 import { useThemeStore } from '../../store/themeStore';
+import { formatCurrency } from '../../lib/formatters';
+import { useShopCountry } from '../../lib/useShopCountry';
 
 const FURNITURE_TYPES = ['Closet', 'Cocina', 'Baño', 'Biblioteca', 'Escritorio', 'Comedor', 'Sala', 'Oficina', 'Otro'];
 
 export default function QuoteForm({ onSaved, prefill }) {
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const country = useShopCountry();
 
   const tk = isDark ? {
     label:    'text-zinc-400',
@@ -295,7 +298,7 @@ export default function QuoteForm({ onSaved, prefill }) {
                   className={`w-full text-left px-4 py-2.5 text-sm transition flex items-center justify-between ${tk.dropItem}`}
                 >
                   <span>{mat.name}</span>
-                  <span className={`text-xs ${tk.dropSub}`}>{mat.unit} · ${Number(mat.cost).toLocaleString()}</span>
+                  <span className={`text-xs ${tk.dropSub}`}>{mat.unit} · {formatCurrency(mat.cost, country)}</span>
                 </button>
               ))}
             </motion.div>
@@ -343,7 +346,7 @@ export default function QuoteForm({ onSaved, prefill }) {
                         />
                       </td>
                       <td className="py-2 text-right text-amber-500 font-medium">
-                        ${Number(item.total_cost).toLocaleString('es-AR')}
+                        {formatCurrency(item.total_cost, country)}
                       </td>
                       <td className="py-2 pl-2">
                         <button type="button" onClick={() => removeItem(i)} className={`${tk.label} hover:text-red-500 transition`}>
@@ -388,16 +391,16 @@ export default function QuoteForm({ onSaved, prefill }) {
         ].map(([label, val]) => (
           <div key={label} className={`flex justify-between text-sm ${tk.sumRow}`}>
             <span>{label}</span>
-            <span>${val.toLocaleString('es-AR')}</span>
+            <span>{formatCurrency(val, country)}</span>
           </div>
         ))}
         <div className={`flex justify-between text-sm border-t pt-2 ${tk.sumDiv} ${tk.sumRow}`}>
           <span>Subtotal</span>
-          <span>${totals.subtotal.toLocaleString('es-AR')}</span>
+          <span>{formatCurrency(totals.subtotal, country)}</span>
         </div>
         <div className={`flex justify-between text-sm ${tk.sumRow}`}>
           <span>Margen ({form.margin_percent}%)</span>
-          <span>+${(totals.total - totals.subtotal).toLocaleString('es-AR')}</span>
+          <span>+{formatCurrency(totals.total - totals.subtotal, country)}</span>
         </div>
         <div className={`flex justify-between text-xl font-bold border-t border-amber-500/30 pt-3 mt-1 ${tk.totalRow}`}>
           <span>Total</span>
@@ -407,7 +410,7 @@ export default function QuoteForm({ onSaved, prefill }) {
             animate={{ scale: 1, color: tk.totalAnim.animate }}
             transition={{ duration: 0.3 }}
           >
-            ${totals.total.toLocaleString('es-AR')}
+            {formatCurrency(totals.total, country)}
           </motion.span>
         </div>
       </motion.div>

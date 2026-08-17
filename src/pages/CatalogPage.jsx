@@ -29,8 +29,10 @@ import {
   Send,
   Phone,
   MapPin,
+  MessageCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { formatCurrency } from '../lib/formatters';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -160,12 +162,6 @@ const stats = [
 ];
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
-
-function money(n) {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 0,
-  }).format(n);
-}
 
 function scrollTo(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -430,7 +426,7 @@ function QuoteModal({ product, onClose, ownerId }) {
 
 // ─── CAROUSEL (drag vs click separados) ───────────────────────────────────
 
-function Carousel({ items, onQuote }) {
+function Carousel({ items, onQuote, country }) {
   const x          = useMotionValue(0);
   const dragging   = useRef(false);
   const pointerDown= useRef({ x: 0, y: 0 });
@@ -552,7 +548,7 @@ function Carousel({ items, onQuote }) {
                 </div>
                 <div className="flex items-end justify-between">
                   <p className="text-lg font-black" style={{ color: W.oak }}>
-                    {isNaN(Number(p.price)) || p.price === '' ? p.price : `$${Number(p.price).toLocaleString('es-AR')}`}
+                    {isNaN(Number(p.price)) || p.price === '' ? p.price : formatCurrency(p.price, country)}
                   </p>
                   <span className="text-[10px] flex items-center gap-0.5" style={{ color: W.earth }}>
                     <ArrowUpRight size={10} /> cotizar
@@ -726,7 +722,7 @@ function PhotoGallery({ photos }) {
 
 // ─── PRODUCT CARD ──────────────────────────────────────────────────────────
 
-function ProductCard({ p, index, onQuote }) {
+function ProductCard({ p, index, onQuote, country }) {
   const [hover, setHover] = useState(false);
 
   return (
@@ -829,7 +825,7 @@ function ProductCard({ p, index, onQuote }) {
         <div>
           <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: W.earth }}>Desde</p>
           <p className="text-xl font-black" style={{ color: W.oak }}>
-            {isNaN(Number(p.price)) || p.price === '' ? p.price : `$${Number(p.price).toLocaleString('es-AR')}`}
+            {isNaN(Number(p.price)) || p.price === '' ? p.price : formatCurrency(p.price, country)}
           </p>
         </div>
         <div className="text-right">
@@ -1272,7 +1268,7 @@ export default function CatalogPage() {
       </section>
 
       {/* ── CAROUSEL SHOWCASE (solo si hay 4+ productos) ── */}
-      {products.length >= 4 && <Carousel items={products} onQuote={setQuoteFor} />}
+      {products.length >= 4 && <Carousel items={products} onQuote={setQuoteFor} country={shopConfig?.country} />}
 
       {/* ── CATÁLOGO GRID ────────────────────────────── */}
       <section id="catalogo" className="py-20 px-6">
@@ -1324,7 +1320,7 @@ export default function CatalogPage() {
               transition={{ duration: 0.25 }}
             >
               {filtered.map((p, i) => (
-                <ProductCard key={p.id} p={p} index={i} onQuote={setQuoteFor} />
+                <ProductCard key={p.id} p={p} index={i} onQuote={setQuoteFor} country={shopConfig?.country} />
               ))}
             </motion.div>
           </AnimatePresence>
@@ -1526,6 +1522,27 @@ export default function CatalogPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── WHATSAPP FLOTANTE ─────────────────────────── */}
+      {shopConfig?.phone && (
+        <motion.a
+          href={`https://wa.me/${shopConfig.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+            `Hola${shopConfig.shop_name ? ' ' + shopConfig.shop_name : ''}, vi tu catálogo online y quería consultar.`
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{ opacity: 0, scale: 0.7, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.8, type: 'spring', stiffness: 260, damping: 20 }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.95 }}
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
+          style={{ background: '#25D366' }}
+          aria-label="Escribir por WhatsApp"
+        >
+          <MessageCircle size={26} className="text-white" fill="white" strokeWidth={0} />
+        </motion.a>
+      )}
 
     </div>
   );

@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
+import { formatCurrency } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 function CountUp({ to, duration = 1.2 }) {
   const [val, setVal] = useState(0);
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const { theme } = useThemeStore();
   const isDark  = theme === 'dark';
   const navigate = useNavigate();
+  const country = useShopCountry();
 
   const [stats,     setStats]     = useState({ clients: 0, leads: 0, quotes: 0, materials: 0, orders: 0, revenue: 0 });
   const [lowStock,  setLowStock]  = useState([]);
@@ -115,7 +118,7 @@ export default function DashboardPage() {
     { label: 'Materiales',    value: stats.materials, icon: Boxes,         to: '/app/inventario',  color: 'text-pink-400',    bg: isDark ? 'bg-pink-500/10' : 'bg-pink-50' },
     {
       label: 'Ingresos cobrados',
-      value: `$${stats.revenue.toLocaleString('es-AR')}`,
+      value: formatCurrency(stats.revenue, country),
       icon: TrendingUp,
       to: '/app/ordenes',
       color: 'text-amber-400',

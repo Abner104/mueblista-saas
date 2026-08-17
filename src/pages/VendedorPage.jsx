@@ -3,13 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Briefcase, FileText, Inbox, DollarSign,
   TrendingUp, CheckCircle2, LogOut, Sun, Moon,
-  ChevronRight, Clock,
+  ChevronRight, Clock, Settings,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useRoleStore } from '../store/roleStore';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { useNavigate } from 'react-router-dom';
+import SettingsModal from '../components/shared/SettingsModal';
+import { formatCurrency, formatDate } from '../lib/formatters';
+import { useShopCountry } from '../lib/useShopCountry';
 
 const STATUS_LABELS  = { draft:'Borrador', sent:'Enviada', approved:'Aprobada', rejected:'Rechazada' };
 const STATUS_DARK  = { draft:'bg-zinc-700/60 text-zinc-300', sent:'bg-amber-500/20 text-amber-300', approved:'bg-emerald-500/20 text-emerald-300', rejected:'bg-red-500/20 text-red-300' };
@@ -21,11 +24,13 @@ export default function VendedorPage() {
   const { theme, toggle }   = useThemeStore();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
+  const country = useShopCountry();
 
   const [leads,   setLeads]   = useState([]);
   const [quotes,  setQuotes]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab,     setTab]     = useState('quotes'); // 'quotes' | 'leads' | 'comisiones'
+  const [showSettings, setShowSettings] = useState(false);
 
   const tk = isDark
     ? { bg: 'bg-zinc-950', header: 'bg-zinc-950 border-zinc-800', text: 'text-white', sub: 'text-zinc-400', card: 'bg-zinc-900 border-zinc-800', tab: 'bg-zinc-900 border-zinc-800 text-zinc-400', tabA: 'bg-white text-black', toggle: 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300', row: 'bg-zinc-800/50 hover:bg-zinc-800 border-zinc-800' }
@@ -82,6 +87,9 @@ export default function VendedorPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowSettings(true)} className={`rounded-xl p-2 transition ${tk.toggle}`}>
+            <Settings size={16} />
+          </button>
           <button onClick={toggle} className={`rounded-xl p-2 transition ${tk.toggle}`}>
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -90,6 +98,8 @@ export default function VendedorPage() {
           </button>
         </div>
       </header>
+
+      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} isDark={isDark} />
 
       <div className="p-4 space-y-4 max-w-2xl mx-auto">
 
@@ -114,14 +124,14 @@ export default function VendedorPage() {
               <TrendingUp size={14} className="text-emerald-400" />
               <p className={`text-xs ${tk.sub}`}>Ventas aprobadas</p>
             </div>
-            <p className={`text-xl font-bold ${tk.text}`}>${totalVentas.toLocaleString('es-AR')}</p>
+            <p className={`text-xl font-bold ${tk.text}`}>{formatCurrency(totalVentas, country)}</p>
           </div>
           <div className={`rounded-2xl border p-4 col-span-1 ${isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-200'}`}>
             <div className="flex items-center gap-2 mb-1">
               <DollarSign size={14} className="text-amber-500" />
               <p className={`text-xs text-amber-600`}>Mi comisión ({commissionPct}%)</p>
             </div>
-            <p className={`text-xl font-bold text-amber-500`}>${totalComision.toLocaleString('es-AR')}</p>
+            <p className={`text-xl font-bold text-amber-500`}>{formatCurrency(totalComision, country)}</p>
           </div>
         </div>
 
@@ -165,7 +175,7 @@ export default function VendedorPage() {
                       <p className={`text-xs ${tk.sub}`}>{q.clients?.name || '—'}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-amber-500">${Number(q.total).toLocaleString('es-AR')}</p>
+                      <p className="text-sm font-bold text-amber-500">{formatCurrency(q.total, country)}</p>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${SC[q.status]}`}>
                         {STATUS_LABELS[q.status]}
                       </span>
@@ -199,7 +209,7 @@ export default function VendedorPage() {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Clock size={11} className={tk.sub} />
-                      <span className={`text-[10px] ${tk.sub}`}>{new Date(lead.created_at).toLocaleDateString('es-AR')}</span>
+                      <span className={`text-[10px] ${tk.sub}`}>{formatDate(lead.created_at, country, { day: '2-digit', month: 'short', year: '2-digit' })}</span>
                     </div>
                   </motion.div>
                 ))}
@@ -214,9 +224,9 @@ export default function VendedorPage() {
                   <div className="space-y-2">
                     {[
                       ['Cotizaciones aprobadas', approvedQuotes.length, null],
-                      ['Total en ventas', `$${totalVentas.toLocaleString('es-AR')}`, null],
+                      ['Total en ventas', formatCurrency(totalVentas, country), null],
                       ['Porcentaje acordado', `${commissionPct}%`, null],
-                      ['Tu comisión total', `$${totalComision.toLocaleString('es-AR')}`, 'text-amber-500 font-bold text-lg'],
+                      ['Tu comisión total', formatCurrency(totalComision, country), 'text-amber-500 font-bold text-lg'],
                     ].map(([label, value, cls]) => (
                       <div key={label} className={`flex justify-between items-center py-2 border-b ${isDark ? 'border-zinc-800' : 'border-stone-100'} last:border-0`}>
                         <span className={`text-sm ${tk.sub}`}>{label}</span>
@@ -237,9 +247,9 @@ export default function VendedorPage() {
                           <p className={`text-xs ${tk.sub}`}>{q.clients?.name}</p>
                         </div>
                         <div className="text-right">
-                          <p className={`text-xs ${tk.sub}`}>${Number(q.total).toLocaleString('es-AR')}</p>
+                          <p className={`text-xs ${tk.sub}`}>{formatCurrency(q.total, country)}</p>
                           <p className="text-sm font-bold text-amber-500">
-                            +${(Number(q.total) * commissionPct / 100).toLocaleString('es-AR')}
+                            +{formatCurrency(Number(q.total) * commissionPct / 100, country)}
                           </p>
                         </div>
                       </div>
