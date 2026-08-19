@@ -71,7 +71,9 @@ export default function QuoteForm({ onSaved, prefill }) {
     depth_mm: 600,
     labor_cost: 0,
     extra_cost: 0,
+    margin_mode: 'percent', // 'percent' | 'fixed'
     margin_percent: 30,
+    margin_amount: 0,
     billing_mode: 'fixed', // 'fixed' | 'area'
     area_width_m: '',
     area_height_m: '',
@@ -115,7 +117,9 @@ export default function QuoteForm({ onSaved, prefill }) {
     materials: selectedItems,
     laborCost: form.labor_cost,
     extraCost: form.extra_cost,
+    marginMode: form.margin_mode,
     marginPercent: form.margin_percent,
+    marginAmount: form.margin_amount,
     billingMode: form.billing_mode,
     areaWidthM: form.area_width_m,
     areaHeightM: form.area_height_m,
@@ -177,7 +181,8 @@ export default function QuoteForm({ onSaved, prefill }) {
         depth_mm: isArea ? null : Number(form.depth_mm),
         labor_cost: Number(form.labor_cost || 0),
         extra_cost: Number(form.extra_cost || 0),
-        margin_percent: Number(form.margin_percent),
+        margin_percent: Number(form.margin_percent || 0),
+        margin_amount: Number(form.margin_amount || 0),
         area_width_m: isArea ? Number(form.area_width_m || 0) : null,
         area_height_m: isArea ? Number(form.area_height_m || 0) : null,
         area_price_m2: isArea ? Number(form.area_price_m2 || 0) : null,
@@ -198,7 +203,8 @@ export default function QuoteForm({ onSaved, prefill }) {
     setForm({
       client_id: '', title: '', furniture_type: 'Closet',
       width_mm: 1200, height_mm: 2200, depth_mm: 600,
-      labor_cost: 0, extra_cost: 0, margin_percent: 30,
+      labor_cost: 0, extra_cost: 0,
+      margin_mode: 'percent', margin_percent: 30, margin_amount: 0,
       billing_mode: 'fixed', area_width_m: '', area_height_m: '', area_price_m2: '',
     });
     setSelectedItems([]);
@@ -437,33 +443,62 @@ export default function QuoteForm({ onSaved, prefill }) {
         )}
       </div>
 
-      {/* Costos adicionales + Margen */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          // En modo 'area' no se pide mano de obra — ese cargo ya lo
-          // cubre ancho×alto×precio por m².
-          ...(form.billing_mode === 'fixed' ? [['Mano de obra ($)', 'labor_cost', true]] : []),
-          ['Costos extra ($)', 'extra_cost', true],
-          ['Margen de ganancia (%)', 'margin_percent', false],
-        ].map(([label, key, isMoney]) => (
-          <div key={key}>
-            <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>{label}</label>
-            {isMoney ? (
-              <CurrencyInput
-                value={form[key]}
-                onChange={(v) => setField(key, v)}
-                className={inputBase}
-              />
-            ) : (
-              <input
-                type="number" min="0" max="200"
-                value={form[key]}
-                onChange={(e) => setField(key, e.target.value)}
-                className={inputBase}
-              />
-            )}
+      {/* Costos adicionales */}
+      <div className={`grid grid-cols-1 ${form.billing_mode === 'fixed' ? 'md:grid-cols-2' : ''} gap-4`}>
+        {/* En modo 'area' no se pide mano de obra — ese cargo ya lo
+            cubre ancho×alto×precio por m². */}
+        {form.billing_mode === 'fixed' && (
+          <div>
+            <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Mano de obra ($)</label>
+            <CurrencyInput value={form.labor_cost} onChange={(v) => setField('labor_cost', v)} className={inputBase} />
           </div>
-        ))}
+        )}
+        <div>
+          <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Costos extra ($)</label>
+          <CurrencyInput value={form.extra_cost} onChange={(v) => setField('extra_cost', v)} className={inputBase} />
+        </div>
+      </div>
+
+      {/* Margen de ganancia — % sobre el costo, o monto fijo en $ */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className={`block text-xs uppercase tracking-wider ${tk.label}`}>Margen de ganancia</label>
+          <div className="flex rounded-lg overflow-hidden border border-amber-500/30">
+            <button
+              type="button"
+              onClick={() => setField('margin_mode', 'percent')}
+              className={`px-3 py-1 text-xs font-semibold transition ${
+                form.margin_mode === 'percent' ? 'bg-amber-500 text-black' : `${tk.section} ${tk.label}`
+              }`}
+            >
+              %
+            </button>
+            <button
+              type="button"
+              onClick={() => setField('margin_mode', 'fixed')}
+              className={`px-3 py-1 text-xs font-semibold transition ${
+                form.margin_mode === 'fixed' ? 'bg-amber-500 text-black' : `${tk.section} ${tk.label}`
+              }`}
+            >
+              $
+            </button>
+          </div>
+        </div>
+        {form.margin_mode === 'percent' ? (
+          <input
+            type="number" min="0" max="200"
+            value={form.margin_percent}
+            onChange={(e) => setField('margin_percent', e.target.value)}
+            className={inputBase}
+          />
+        ) : (
+          <CurrencyInput
+            value={form.margin_amount}
+            onChange={(v) => setField('margin_amount', v)}
+            placeholder="0"
+            className={inputBase}
+          />
+        )}
       </div>
 
       {/* Resumen */}
@@ -486,8 +521,8 @@ export default function QuoteForm({ onSaved, prefill }) {
           <span>{formatCurrency(totals.subtotal, country)}</span>
         </div>
         <div className={`flex justify-between text-sm ${tk.sumRow}`}>
-          <span>Margen ({form.margin_percent}%)</span>
-          <span>+{formatCurrency(totals.total - totals.subtotal, country)}</span>
+          <span>Margen {form.margin_mode === 'percent' ? `(${form.margin_percent}%)` : ''}</span>
+          <span>+{formatCurrency(totals.marginValue, country)}</span>
         </div>
         <div className={`flex justify-between text-xl font-bold border-t border-amber-500/30 pt-3 mt-1 ${tk.totalRow}`}>
           <span>Total</span>
