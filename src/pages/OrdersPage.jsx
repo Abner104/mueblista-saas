@@ -147,7 +147,7 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros, country }) {
         {/* Monto */}
         <div>
           <label className={`block text-xs uppercase tracking-wider mb-1 ${tk.sub}`}>Monto ($)</label>
-          <CurrencyInput value={amount} onChange={setAmount} className={inputCls.replace('appearance-none', '')} />
+          <CurrencyInput allowDecimals value={amount} onChange={setAmount} className={inputCls.replace('appearance-none', '')} />
         </div>
 
         {/* Fecha entrega */}

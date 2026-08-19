@@ -21,7 +21,11 @@ export default function CurrencyInput({
     if (raw === '' || raw === null || raw === undefined) return '';
     const num = Number(raw);
     if (isNaN(num)) return '';
-    return num.toLocaleString('es-CL', {
+    // es-CL: punto de miles. Para decimales, en-US da coma de miles y
+    // punto decimal — más intuitivo para montos en dólares que la coma
+    // decimal de es-CL, que se confunde fácil con el punto de miles.
+    return num.toLocaleString(allowDecimals ? 'en-US' : 'es-CL', {
+      minimumFractionDigits: allowDecimals ? 2 : 0,
       maximumFractionDigits: allowDecimals ? 2 : 0,
     });
   };
@@ -53,10 +57,16 @@ export default function CurrencyInput({
 
   function handleChange(e) {
     const raw = e.target.value;
-    // Solo dígitos (y un punto decimal si allowDecimals).
-    const cleaned = allowDecimals
-      ? raw.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1')
-      : raw.replace(/[^\d]/g, '');
+    let cleaned;
+    if (allowDecimals) {
+      // Solo dígitos y un único punto decimal.
+      cleaned = raw.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+    } else {
+      // Sin decimales: si el usuario escribe un separador (. o ,),
+      // se corta ahí en vez de borrarlo y pegar los dígitos siguientes
+      // (evita que "16.0" termine guardándose como 160).
+      cleaned = raw.split(/[.,]/)[0].replace(/[^\d]/g, '');
+    }
     setDisplay(cleaned);
     onChange(cleaned);
   }

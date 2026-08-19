@@ -165,7 +165,7 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Costo ($)</Label>
-              <CurrencyInput value={form.cost} onChange={(v) => setF('cost', v)} placeholder="0" className={InputCls} />
+              <CurrencyInput allowDecimals value={form.cost} onChange={(v) => setF('cost', v)} placeholder="0" className={InputCls} />
             </div>
             <div>
               <Label>Stock actual</Label>

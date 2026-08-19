@@ -447,6 +447,7 @@ export default function QuoteForm({ onSaved, prefill }) {
                       </td>
                       <td className="py-2 pr-2">
                         <CurrencyInput
+                          allowDecimals
                           value={item.unit_cost}
                           onChange={(v) => updateItem(i, 'unit_cost', v)}
                           className={`w-full text-right border rounded-lg px-2 py-1 focus:outline-none transition ${tk.inputSm}`}
@@ -477,12 +478,12 @@ export default function QuoteForm({ onSaved, prefill }) {
         {form.billing_mode === 'fixed' && (
           <div>
             <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Mano de obra ($)</label>
-            <CurrencyInput value={form.labor_cost} onChange={(v) => setField('labor_cost', v)} className={inputBase} />
+            <CurrencyInput allowDecimals value={form.labor_cost} onChange={(v) => setField('labor_cost', v)} className={inputBase} />
           </div>
         )}
         <div>
           <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Costos extra ($)</label>
-          <CurrencyInput value={form.extra_cost} onChange={(v) => setField('extra_cost', v)} className={inputBase} />
+          <CurrencyInput allowDecimals value={form.extra_cost} onChange={(v) => setField('extra_cost', v)} className={inputBase} />
         </div>
       </div>
 
@@ -520,6 +521,7 @@ export default function QuoteForm({ onSaved, prefill }) {
           />
         ) : (
           <CurrencyInput
+            allowDecimals
             value={form.margin_amount}
             onChange={(v) => setField('margin_amount', v)}
             placeholder="0"
