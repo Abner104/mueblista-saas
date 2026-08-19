@@ -11,7 +11,7 @@ import CurrencyInput from '../shared/CurrencyInput';
 // Sugerencias — el campo es de texto libre, esto solo autocompleta.
 const FURNITURE_TYPE_SUGGESTIONS = [
   'Closet', 'Cocina', 'Baño', 'Biblioteca', 'Escritorio', 'Comedor', 'Sala', 'Oficina',
-  'Cielo raso', 'Pared PVC', 'Desayunador', 'Revestimiento',
+  'Cielo raso', 'Pared PVC', 'Desayunador', 'Revestimiento', 'Iluminación',
 ];
 
 export default function QuoteForm({ onSaved, prefill }) {
@@ -94,21 +94,55 @@ export default function QuoteForm({ onSaved, prefill }) {
     setMaterials(m || []);
 
     if (prefill?.clientName) {
-      const existing = clientList.find(
-        (cl) => cl.name.toLowerCase() === prefill.clientName.toLowerCase()
-      );
+      const normalizedName = prefill.clientName.trim().toLowerCase();
+      const normalizedPhone = (prefill.clientPhone || '').replace(/\D/g, '');
+      const existing = clientList.find((cl) => {
+        const namesMatch = cl.name.trim().toLowerCase() === normalizedName;
+        const phonesMatch = normalizedPhone && (cl.phone || '').replace(/\D/g, '') === normalizedPhone;
+        return namesMatch || phonesMatch;
+      });
       if (existing) {
         setForm((f) => ({ ...f, client_id: existing.id, title: prefill.productName || '' }));
       } else {
+        // Verificación fresca contra la BD (no solo la lista en memoria)
+        // para evitar duplicados si este efecto corre más de una vez
+        // (ej. el dueño convierte el mismo lead dos veces).
         const { data: authData } = await supabase.auth.getUser();
-        const { data: newClient } = await supabase
-          .from('clients')
-          .insert({ owner_id: authData.user.id, name: prefill.clientName, phone: prefill.clientPhone || '', email: prefill.clientEmail || '' })
-          .select('id,name')
-          .single();
-        if (newClient) {
-          setClients((prev) => [...prev, newClient]);
-          setForm((f) => ({ ...f, client_id: newClient.id, title: prefill.productName || '' }));
+        let dbMatch = null;
+        if (normalizedPhone) {
+          const { data: byPhone } = await supabase
+            .from('clients')
+            .select('id,name')
+            .eq('owner_id', authData.user.id)
+            .ilike('phone', `%${normalizedPhone}%`)
+            .limit(1)
+            .maybeSingle();
+          dbMatch = byPhone;
+        }
+        if (!dbMatch) {
+          const { data: byName } = await supabase
+            .from('clients')
+            .select('id,name')
+            .eq('owner_id', authData.user.id)
+            .ilike('name', prefill.clientName.trim())
+            .limit(1)
+            .maybeSingle();
+          dbMatch = byName;
+        }
+
+        if (dbMatch) {
+          setClients((prev) => (prev.find((cl) => cl.id === dbMatch.id) ? prev : [...prev, dbMatch]));
+          setForm((f) => ({ ...f, client_id: dbMatch.id, title: prefill.productName || '' }));
+        } else {
+          const { data: newClient } = await supabase
+            .from('clients')
+            .insert({ owner_id: authData.user.id, name: prefill.clientName, phone: prefill.clientPhone || '', email: prefill.clientEmail || '' })
+            .select('id,name')
+            .single();
+          if (newClient) {
+            setClients((prev) => [...prev, newClient]);
+            setForm((f) => ({ ...f, client_id: newClient.id, title: prefill.productName || '' }));
+          }
         }
       }
     }

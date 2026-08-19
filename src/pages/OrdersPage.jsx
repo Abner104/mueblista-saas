@@ -482,6 +482,7 @@ export default function OrdersPage() {
   const [loading,      setLoading]      = useState(true);
   const [showNew,      setShowNew]      = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDate,   setFilterDate]   = useState('all');
 
   const tk = isDark
     ? { text: 'text-white', sub: 'text-zinc-400', tab: 'bg-zinc-900 text-zinc-400 border-zinc-800', tabActive: 'bg-white text-black' }
@@ -505,7 +506,35 @@ export default function OrdersPage() {
     setLoading(false);
   }
 
-  const filtered = filterStatus === 'all' ? sales : sales.filter(s => s.status === filterStatus);
+  function dateBucket(dueDate) {
+    if (!dueDate) return 'none';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate + 'T00:00:00');
+    const diffDays = Math.round((due - today) / 86400000);
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 6) return 'this_week';
+    if (diffDays <= 13) return 'next_week';
+    return 'later';
+  }
+
+  const filtered = sales
+    .filter(s => filterStatus === 'all' || s.status === filterStatus)
+    .filter(s => filterDate === 'all' || dateBucket(s.due_date) === filterDate)
+    .sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date) - new Date(b.due_date);
+    });
+
+  const DATE_FILTERS = [
+    ['all',       'Todas las fechas'],
+    ['overdue',   'Vencidas'],
+    ['this_week', 'Esta semana'],
+    ['next_week', 'Próxima semana'],
+    ['later',     'Más adelante'],
+    ['none',      'Sin fecha'],
+  ];
 
   const kpis = [
     { label: 'Total órdenes', value: sales.length,                                                           icon: ClipboardList },
@@ -541,13 +570,24 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — estado */}
       <div className="flex gap-2 flex-wrap">
         {[['all', 'Todas'], ...PROD_STATUSES.map(s => [s.value, s.label])].map(([val, label]) => (
           <button key={val} onClick={() => setFilterStatus(val)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${filterStatus === val ? tk.tabActive : tk.tab}`}>
             {label}
             {val !== 'all' && <span className="ml-1.5 text-xs opacity-60">{sales.filter(s => s.status === val).length}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Tabs — fecha de entrega */}
+      <div className="flex gap-2 flex-wrap">
+        {DATE_FILTERS.map(([val, label]) => (
+          <button key={val} onClick={() => setFilterDate(val)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${filterDate === val ? tk.tabActive : tk.tab}`}>
+            {label}
+            {val !== 'all' && <span className="ml-1.5 text-xs opacity-60">{sales.filter(s => dateBucket(s.due_date) === val).length}</span>}
           </button>
         ))}
       </div>

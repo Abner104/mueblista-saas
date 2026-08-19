@@ -4,7 +4,7 @@
  * filtra por categoría y pide cotización. El lead llega al panel del mueblista.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
@@ -58,13 +58,23 @@ const W = { ...W_BASE };
 // ─── DATOS DE DEMO ─────────────────────────────────────────────────────────
 // En producción esto vendría de Supabase (tabla products/catalog)
 
-const categories = [
-  { id: 'todos',      label: 'Todo' },
-  { id: 'dormitorio', label: 'Dormitorio' },
-  { id: 'cocina',     label: 'Cocina' },
-  { id: 'sala',       label: 'Sala y comedor' },
-  { id: 'oficina',    label: 'Oficina' },
-];
+// Etiquetas conocidas para las categorías que ofrece el editor de catálogo
+// (SalesRoomPage). Cualquier categoría fuera de este mapa se muestra con
+// su nombre capitalizado tal cual, para no perder productos de categorías
+// nuevas que no estén en esta lista.
+const CATEGORY_LABELS = {
+  dormitorio: 'Dormitorio',
+  cocina: 'Cocina',
+  sala: 'Sala y comedor',
+  oficina: 'Oficina',
+  exterior: 'Exterior',
+  'iluminación': 'Iluminación',
+  otro: 'Otro',
+};
+
+function categoryLabel(id) {
+  return CATEGORY_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+}
 
 const catalog = [
   {
@@ -1022,6 +1032,11 @@ export default function CatalogPage() {
     }
     load();
   }, [slug]);
+
+  const categories = useMemo(() => {
+    const present = [...new Set(products.map((p) => p.category).filter(Boolean))];
+    return [{ id: 'todos', label: 'Todo' }, ...present.map((id) => ({ id, label: categoryLabel(id) }))];
+  }, [products]);
 
   const filtered = activeCategory === 'todos'
     ? products

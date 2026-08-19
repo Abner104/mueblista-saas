@@ -15,7 +15,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
 
 const BUCKET = 'catalog-photos';
-const CATS   = ['dormitorio','cocina','sala','oficina','exterior','otro'];
+const CATS   = ['dormitorio','cocina','sala','oficina','exterior','iluminación','otro'];
 
 // Tokens de color por tema — mismo patrón que el resto del panel
 // (OrdersPage, WorkersPage). Se pasan a los subcomponentes como prop `tk`.
