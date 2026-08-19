@@ -78,6 +78,7 @@ export default function QuoteForm({ onSaved, prefill }) {
     area_width_m: '',
     area_height_m: '',
     area_price_m2: '',
+    includes_materials: true, // false = el cliente pone el material, solo se cobra instalación
   });
   const [selectedItems, setSelectedItems] = useState([]);
 
@@ -160,6 +161,13 @@ export default function QuoteForm({ onSaved, prefill }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function toggleIncludesMaterials() {
+    setForm((prev) => ({ ...prev, includes_materials: !prev.includes_materials }));
+    // Si se apaga, cualquier material ya cargado dejaría de sumar al
+    // total sin desaparecer de la vista — mejor limpiarlo directo.
+    setSelectedItems([]);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.client_id) return alert('Selecciona un cliente');
@@ -206,6 +214,7 @@ export default function QuoteForm({ onSaved, prefill }) {
       labor_cost: 0, extra_cost: 0,
       margin_mode: 'percent', margin_percent: 30, margin_amount: 0,
       billing_mode: 'fixed', area_width_m: '', area_height_m: '', area_price_m2: '',
+      includes_materials: true,
     });
     setSelectedItems([]);
     if (onSaved) onSaved();
@@ -341,7 +350,24 @@ export default function QuoteForm({ onSaved, prefill }) {
         </div>
       )}
 
+      {/* Toggle: ¿provee materiales o solo instala? */}
+      <label className="flex items-center gap-3 cursor-pointer select-none">
+        <div
+          onClick={toggleIncludesMaterials}
+          className={`relative w-10 h-6 rounded-full border transition-colors shrink-0 ${form.includes_materials ? 'bg-amber-500 border-amber-500' : `${tk.section}`}`}
+        >
+          <motion.div animate={{ x: form.includes_materials ? 18 : 2 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className="absolute top-1 w-4 h-4 bg-white rounded-full shadow" />
+        </div>
+        <span className={`text-sm ${tk.label}`}>
+          {form.includes_materials
+            ? 'Incluye materiales — vos los provees'
+            : 'Solo instalación — el cliente pone el material'}
+        </span>
+      </label>
+
       {/* Materiales */}
+      {form.includes_materials && (
       <div className={`rounded-2xl border ${tk.section} p-4 space-y-3`}>
         <div className="flex items-center gap-2">
           <Package size={16} className="text-amber-400" />
@@ -442,6 +468,7 @@ export default function QuoteForm({ onSaved, prefill }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Costos adicionales */}
       <div className={`grid grid-cols-1 ${form.billing_mode === 'fixed' ? 'md:grid-cols-2' : ''} gap-4`}>
@@ -505,7 +532,7 @@ export default function QuoteForm({ onSaved, prefill }) {
       <motion.div layout className={`rounded-2xl border p-5 space-y-2 ${tk.summary}`}>
         <h3 className="text-xs uppercase tracking-wider text-amber-500/70 mb-3">Resumen</h3>
         {[
-          ['Materiales', totals.materialsSubtotal],
+          ...(form.includes_materials ? [['Materiales', totals.materialsSubtotal]] : []),
           form.billing_mode === 'area'
             ? [`Instalación (${totals.areaM2} m²)`, totals.areaCost]
             : ['Mano de obra', Number(form.labor_cost)],

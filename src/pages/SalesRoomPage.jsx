@@ -67,7 +67,7 @@ const DEFAULT_CONFIG = {
   guarantees: ['Sin adelanto','Instalación incluida','Garantía 12 meses','Corte CNC de precisión'],
 };
 
-const EMPTY_PRODUCT    = { name:'', category:'dormitorio', price:'', time:'', tag:'', wood:'', finish:'', dims:'', description:'', photos:[], visible:true };
+const EMPTY_PRODUCT    = { name:'', category:'dormitorio', price:'', price_installation:'', time:'', tag:'', wood:'', finish:'', dims:'', description:'', photos:[], visible:true };
 const EMPTY_COLLECTION = { title:'', description:'', photos:[] };
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────
@@ -366,13 +366,16 @@ function ProductModal({ product, userId, onSave, onClose, tk }) {
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Precio" tk={tk}>
+            <Field label="Precio — trabajo completo" tk={tk}>
               <input className={inputCls} value={form.price} onChange={e => set('price', e.target.value)} placeholder="Ej: 1.500.000 o Consultar"/>
             </Field>
-            <Field label="Plazo de entrega" tk={tk}>
-              <input className={inputCls} value={form.time} onChange={e => set('time', e.target.value)} placeholder="Ej: 10 días hábiles"/>
+            <Field label="Precio — solo instalación (opcional)" tk={tk}>
+              <input className={inputCls} value={form.price_installation} onChange={e => set('price_installation', e.target.value)} placeholder="Si el cliente pone el material"/>
             </Field>
           </div>
+          <Field label="Plazo de entrega" tk={tk}>
+            <input className={inputCls} value={form.time} onChange={e => set('time', e.target.value)} placeholder="Ej: 10 días hábiles"/>
+          </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Etiqueta (tag)" tk={tk}>
               <input className={inputCls} value={form.tag} onChange={e => set('tag', e.target.value)} placeholder="Ej: Más pedido, Premium"/>
@@ -839,6 +842,7 @@ export default function SalesRoomPage() {
                     <p className={`text-sm font-semibold truncate ${tk.text}`}>{p.name || 'Sin nombre'}</p>
                     <p className={`text-xs ${tk.subFaint}`}>
                       {p.category} · {p.price}
+                      {p.price_installation && <span className="text-blue-500"> · instalación: {p.price_installation}</span>}
                       {p.photos?.length > 0 && <span className="ml-2 text-amber-600">{p.photos.length} foto{p.photos.length>1?'s':''}</span>}
                     </p>
                   </div>

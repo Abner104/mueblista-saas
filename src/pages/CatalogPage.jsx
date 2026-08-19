@@ -547,9 +547,16 @@ function Carousel({ items, onQuote, country }) {
                   <p className="text-xs mt-1" style={{ color: W.earth }}>{p.dims}</p>
                 </div>
                 <div className="flex items-end justify-between">
-                  <p className="text-lg font-black" style={{ color: W.oak }}>
-                    {isNaN(Number(p.price)) || p.price === '' ? p.price : formatCurrency(p.price, country)}
-                  </p>
+                  <div>
+                    <p className="text-lg font-black" style={{ color: W.oak }}>
+                      {isNaN(Number(p.price)) || p.price === '' ? p.price : formatCurrency(p.price, country)}
+                    </p>
+                    {p.price_installation && (
+                      <p className="text-[10px] font-semibold" style={{ color: W.earth }}>
+                        Solo instalación: {isNaN(Number(p.price_installation)) ? p.price_installation : formatCurrency(p.price_installation, country)}
+                      </p>
+                    )}
+                  </div>
                   <span className="text-[10px] flex items-center gap-0.5" style={{ color: W.earth }}>
                     <ArrowUpRight size={10} /> cotizar
                   </span>
@@ -827,6 +834,11 @@ function ProductCard({ p, index, onQuote, country }) {
           <p className="text-xl font-black" style={{ color: W.oak }}>
             {isNaN(Number(p.price)) || p.price === '' ? p.price : formatCurrency(p.price, country)}
           </p>
+          {p.price_installation && (
+            <p className="text-[11px] font-semibold mt-0.5" style={{ color: W.sand }}>
+              Solo instalación: <span style={{ color: W.oak }}>{isNaN(Number(p.price_installation)) ? p.price_installation : formatCurrency(p.price_installation, country)}</span>
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: W.earth }}>Plazo</p>

@@ -49,18 +49,25 @@ async function generatePDF(quote, country) {
   doc.setFont('helvetica','bold'); doc.text(dimsLabel,14,55);
   doc.setFont('helvetica','normal'); doc.text(dimsValue,14,62);
 
-  doc.setDrawColor(...OAK); doc.setLineWidth(0.5); doc.line(14,67,W-14,67);
+  let dividerY = 67;
+  if (quote.includes_materials === false) {
+    doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(120,100,60);
+    doc.text('Cotización de solo instalación — materiales provistos por el cliente.', 14, dividerY);
+    dividerY += 5;
+  }
+
+  doc.setDrawColor(...OAK); doc.setLineWidth(0.5); doc.line(14,dividerY,W-14,dividerY);
 
   const items = (quote.quote_items||[]).map(i=>[i.description,`${Number(i.quantity)} ${i.unit}`,money(i.unit_cost),money(i.total_cost)]);
   if (items.length>0) {
-    autoTable(doc,{ startY:72, head:[['Material','Cantidad','P. Unit.','Total']], body:items, theme:'striped',
+    autoTable(doc,{ startY:dividerY+5, head:[['Material','Cantidad','P. Unit.','Total']], body:items, theme:'striped',
       headStyles:{ fillColor:OAK, textColor:255, fontStyle:'bold', fontSize:10 },
       bodyStyles:{ fontSize:9, textColor:[40,40,40] },
       columnStyles:{ 0:{cellWidth:80}, 1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'} },
       margin:{ left:14, right:14 } });
   }
 
-  const finalY = (doc.lastAutoTable?.finalY||72)+8;
+  const finalY = (doc.lastAutoTable?.finalY||dividerY+5)+8;
   const boxX   = W-14-80;
   doc.setFillColor(250,248,244); doc.roundedRect(boxX,finalY,80,52,3,3,'F');
   doc.setDrawColor(...OAK); doc.setLineWidth(0.3); doc.roundedRect(boxX,finalY,80,52,3,3,'S');
@@ -169,7 +176,14 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
         {/* Header */}
         <div className={`flex items-start justify-between p-6 border-b ${tk.border}`}>
           <div>
-            <p className={`text-xs uppercase tracking-wider mb-1 ${tk.sub}`}>{quote.furniture_type}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className={`text-xs uppercase tracking-wider ${tk.sub}`}>{quote.furniture_type}</p>
+              {quote.includes_materials === false && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  Solo instalación
+                </span>
+              )}
+            </div>
             <h2 className={`text-xl font-bold ${tk.text}`}>{quote.title}</h2>
             <p className={`text-sm mt-0.5 ${tk.sub}`}>{quote.clients?.name}</p>
           </div>
@@ -332,6 +346,7 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
               (quote.billing_mode === 'area'
                 ? `• Superficie: ${quote.area_width_m}×${quote.area_height_m}m (${(Number(quote.area_width_m)*Number(quote.area_height_m)).toFixed(2)} m²)\n`
                 : `• Dimensiones: ${quote.width_mm}×${quote.height_mm}×${quote.depth_mm}mm\n`) +
+              (quote.includes_materials === false ? `• Solo instalación (materiales por tu cuenta)\n` : '') +
               `• Total: ${formatCurrency(quote.total, country)}\n\n` +
               `Cualquier consulta estoy disponible.`)}`}
               target="_blank" rel="noopener noreferrer"
@@ -496,7 +511,14 @@ export default function QuotesPage() {
                   <FileText size={18} className="text-amber-500"/>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold truncate ${tk.text}`}>{q.title}</p>
+                  <p className={`font-semibold truncate ${tk.text} flex items-center gap-2`}>
+                    {q.title}
+                    {q.includes_materials === false && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                        Solo instalación
+                      </span>
+                    )}
+                  </p>
                   <p className={`text-sm truncate ${tk.sub}`}>{q.clients?.name} · {q.furniture_type}</p>
                 </div>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${SC[q.status]}`}>
