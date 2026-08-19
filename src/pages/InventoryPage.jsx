@@ -169,11 +169,11 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
             </div>
             <div>
               <Label>Stock actual</Label>
-              <input type="number" min="0" value={form.stock} onChange={(e) => setF('stock', e.target.value)} placeholder="0" className={InputCls} />
+              <input type="number" min="0" step="any" value={form.stock} onChange={(e) => setF('stock', e.target.value)} placeholder="0" className={InputCls} />
             </div>
             <div>
               <Label>Stock mínimo</Label>
-              <input type="number" min="0" value={form.min_stock} onChange={(e) => setF('min_stock', e.target.value)} placeholder="0" className={InputCls} />
+              <input type="number" min="0" step="any" value={form.min_stock} onChange={(e) => setF('min_stock', e.target.value)} placeholder="0" className={InputCls} />
             </div>
           </div>
 
@@ -181,8 +181,8 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
           <div>
             <Label>Medidas plancha — opcional (mm)</Label>
             <div className="grid grid-cols-2 gap-3">
-              <input type="number" value={form.sheet_width_mm} onChange={(e) => setF('sheet_width_mm', e.target.value)} placeholder="Ancho" className={InputCls} />
-              <input type="number" value={form.sheet_height_mm} onChange={(e) => setF('sheet_height_mm', e.target.value)} placeholder="Alto" className={InputCls} />
+              <input type="number" step="any" value={form.sheet_width_mm} onChange={(e) => setF('sheet_width_mm', e.target.value)} placeholder="Ancho" className={InputCls} />
+              <input type="number" step="any" value={form.sheet_height_mm} onChange={(e) => setF('sheet_height_mm', e.target.value)} placeholder="Alto" className={InputCls} />
             </div>
           </div>
 

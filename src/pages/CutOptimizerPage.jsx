@@ -126,13 +126,13 @@ function PieceRow({ piece, index, onChange, onDelete, isDark }) {
         className={inp}
       />
       <input
-        type="number" min="1" placeholder="Ancho"
+        type="number" min="1" step="any" placeholder="Ancho"
         value={piece.width_mm}
         onChange={(e) => onChange(index, 'width_mm', e.target.value)}
         className={inp}
       />
       <input
-        type="number" min="1" placeholder="Alto"
+        type="number" min="1" step="any" placeholder="Alto"
         value={piece.height_mm}
         onChange={(e) => onChange(index, 'height_mm', e.target.value)}
         className={inp}
@@ -407,13 +407,13 @@ export default function CutOptimizerPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={`block text-xs uppercase tracking-wider mb-1.5 ${tk.sub}`}>Ancho (mm)</label>
-                <input type="number" min="100" value={sheetWidth}
+                <input type="number" min="100" step="any" value={sheetWidth}
                   onChange={(e) => { setSheetWidth(Number(e.target.value)); setSheetPreset(5); }}
                   className={inpCls} />
               </div>
               <div>
                 <label className={`block text-xs uppercase tracking-wider mb-1.5 ${tk.sub}`}>Alto (mm)</label>
-                <input type="number" min="100" value={sheetHeight}
+                <input type="number" min="100" step="any" value={sheetHeight}
                   onChange={(e) => { setSheetHeight(Number(e.target.value)); setSheetPreset(5); }}
                   className={inpCls} />
               </div>

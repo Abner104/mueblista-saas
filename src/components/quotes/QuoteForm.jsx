@@ -321,7 +321,7 @@ export default function QuoteForm({ onSaved, prefill }) {
           {[['Ancho (mm)', 'width_mm'], ['Alto (mm)', 'height_mm'], ['Fondo (mm)', 'depth_mm']].map(([label, key]) => (
             <div key={key}>
               <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>{label}</label>
-              <input type="number" value={form[key]} onChange={(e) => setField(key, e.target.value)} className={inputBase} />
+              <input type="number" step="any" value={form[key]} onChange={(e) => setField(key, e.target.value)} className={inputBase} />
             </div>
           ))}
         </div>
@@ -513,7 +513,7 @@ export default function QuoteForm({ onSaved, prefill }) {
         </div>
         {form.margin_mode === 'percent' ? (
           <input
-            type="number" min="0" max="200"
+            type="number" min="0" max="200" step="any"
             value={form.margin_percent}
             onChange={(e) => setField('margin_percent', e.target.value)}
             className={inputBase}
