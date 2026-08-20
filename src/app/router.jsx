@@ -14,6 +14,7 @@ import WorkersPage from '../pages/WorkersPage';
 import CatalogPage from '../pages/CatalogPage';
 import BillingPage from '../pages/BillingPage';
 import AccountSettingsPage from '../pages/AccountSettingsPage';
+import PricingRulesPage from '../pages/PricingRulesPage';
 import SuperAdminPage from '../pages/SuperAdminPage';
 import AppShell from '../components/layout/AppShell';
 import ProtectedRoute from '../components/features/auth/ProtectedRoute';
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
       { path: 'trabajadores',     element: <WorkersPage /> },
       { path: 'billing',          element: <BillingPage /> },
       { path: 'configuracion',    element: <AccountSettingsPage /> },
+      { path: 'configuracion/cotizador', element: <PricingRulesPage /> },
     ],
   },
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, Briefcase, ChevronRight, Globe, Check } from 'lucide-react';
+import { CreditCard, Briefcase, ChevronRight, Globe, Check, Ruler } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
@@ -10,6 +10,7 @@ import PasskeyManager from '../components/shared/PasskeyManager';
 const SHOP_LINKS = [
   { to: '/app/billing', label: 'Suscripción',        desc: 'Tu plan, el trial y el método de pago',       icon: CreditCard },
   { to: '/app/ventas',  label: 'Editor de catálogo', desc: 'Identidad, contacto, productos y colecciones', icon: Briefcase  },
+  { to: '/app/configuracion/cotizador', label: 'Cotizador del catálogo', desc: 'Tarifas por m² para el estimador público', icon: Ruler },
 ];
 
 export default function AccountSettingsPage() {

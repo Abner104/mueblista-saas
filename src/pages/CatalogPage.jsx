@@ -30,6 +30,7 @@ import {
   Phone,
   MapPin,
   MessageCircle,
+  Calculator,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatCurrency } from '../lib/formatters';
@@ -200,7 +201,7 @@ function Grain({ op = 0.04, id = 'g0' }) {
 
 // ─── QUOTE MODAL ───────────────────────────────────────────────────────────
 
-function QuoteModal({ product, onClose, ownerId }) {
+function QuoteModal({ product, estimate, onClose, ownerId }) {
   const [name,  setName]  = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -213,14 +214,15 @@ function QuoteModal({ product, onClose, ownerId }) {
     if (!name.trim() || !phone.trim()) return;
     setBusy(true);
     try {
+      const fullMessage = estimate ? `${estimate}${note.trim() ? `\n\n${note.trim()}` : ''}` : note.trim();
       await supabase.from('catalog_leads').insert({
         owner_id: ownerId,
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim(),
-        message: note.trim(),
+        message: fullMessage,
         product_id: product?.id ?? null,
-        product_name: product?.name ?? '',
+        product_name: product?.name ?? (estimate ? 'Cotizador del catálogo' : ''),
         status: 'new',
       });
     } catch (_) { /* silent */ }
@@ -228,7 +230,7 @@ function QuoteModal({ product, onClose, ownerId }) {
     setSent(true);
   }
 
-  const title = product ? product.name : 'Consulta general';
+  const title = product ? product.name : estimate ? 'Tu proyecto' : 'Consulta general';
 
   return (
     <motion.div
@@ -263,6 +265,11 @@ function QuoteModal({ product, onClose, ownerId }) {
               {product && (
                 <p className="text-xs mt-1" style={{ color: W.earth }}>
                   {product.dims} · {product.wood}
+                </p>
+              )}
+              {estimate && (
+                <p className="text-xs mt-1 whitespace-pre-line" style={{ color: W.earth }}>
+                  {estimate}
                 </p>
               )}
             </div>
@@ -786,6 +793,101 @@ function ProductCard({ p, index, onQuote, country }) {
 
 // ─── NAVBAR PÚBLICA ────────────────────────────────────────────────────────
 
+// ─── ESTIMADOR — "Cotizá tu proyecto" ───────────────────────────────────────
+function PricingEstimator({ rules, country, onQuote }) {
+  const [ruleId, setRuleId] = useState(rules[0]?.id || '');
+  const [widthM,  setWidthM]  = useState('');
+  const [heightM, setHeightM] = useState('');
+
+  if (!rules.length) return null;
+
+  const rule = rules.find((r) => r.id === ruleId) || rules[0];
+  const area = Number(widthM || 0) * Number(heightM || 0);
+  const low  = area * Number(rule?.price_m2 || 0);
+  const high = low * (1 + Number(rule?.range_pct || 0) / 100);
+  const hasArea = area > 0;
+
+  function requestQuote() {
+    const estimate = hasArea
+      ? `Estimador del catálogo — ${rule.label}\nMedidas: ${widthM}×${heightM}m (${area.toFixed(2)} m²)\nRango estimado: ${formatCurrency(low, country)} – ${formatCurrency(high, country)}`
+      : `Estimador del catálogo — ${rule.label}`;
+    onQuote(estimate);
+  }
+
+  return (
+    <section id="cotizador" className="relative py-20 px-6 md:px-10" style={{ background: W.surface }}>
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-10">
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: W.earth }}>Estimador</p>
+          <h2 className="text-3xl md:text-4xl font-black" style={{ color: W.linen }}>Cotizá tu proyecto</h2>
+          <p className="text-sm mt-3 max-w-md mx-auto" style={{ color: W.sand }}>
+            Elegí el tipo de trabajo y tus medidas — te mostramos un rango estimado al instante.
+          </p>
+        </div>
+
+        <div className="rounded-3xl p-6 md:p-8" style={{ background: W.surface2, border: `1px solid ${W.border2}` }}>
+          <div className="grid md:grid-cols-3 gap-4 mb-6">
+            <div className="md:col-span-1">
+              <label className="text-[10px] uppercase tracking-widest mb-1.5 block" style={{ color: W.earth }}>Tipo de trabajo</label>
+              <select
+                value={ruleId} onChange={(e) => setRuleId(e.target.value)}
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: W.surface, border: `1px solid ${W.border2}`, color: W.linen }}
+              >
+                {rules.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest mb-1.5 block" style={{ color: W.earth }}>Ancho (m)</label>
+              <input
+                type="number" min="0" step="any" value={widthM} onChange={(e) => setWidthM(e.target.value)}
+                placeholder="0" className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: W.surface, border: `1px solid ${W.border2}`, color: W.linen }}
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest mb-1.5 block" style={{ color: W.earth }}>Alto (m)</label>
+              <input
+                type="number" min="0" step="any" value={heightM} onChange={(e) => setHeightM(e.target.value)}
+                placeholder="0" className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: W.surface, border: `1px solid ${W.border2}`, color: W.linen }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl p-6 text-center mb-6" style={{ background: W.surface, border: `1px dashed ${W.border2}` }}>
+            {hasArea ? (
+              <>
+                <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: W.earth }}>
+                  {area.toFixed(2)} m² · rango estimado
+                </p>
+                <p className="text-2xl md:text-3xl font-black" style={{ color: W.oak }}>
+                  {formatCurrency(low, country)} – {formatCurrency(high, country)}
+                </p>
+                <p className="text-[11px] mt-2" style={{ color: W.earth }}>
+                  Precio final sujeto a confirmación según terminación y detalles del trabajo.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: W.earth }}>
+                <Calculator size={16} className="inline mr-1.5 -mt-0.5" /> Cargá el ancho y alto para ver el estimado
+              </p>
+            )}
+          </div>
+
+          <MagBtn
+            style={{ background: `${W.oak}18`, border: `1px solid ${W.oak}35`, color: W.oak }}
+            className="w-full rounded-xl py-3.5 text-sm font-bold flex items-center justify-center gap-2 transition-colors hover:bg-[#c8923a28]"
+            onClick={requestQuote}
+          >
+            {hasArea ? 'Pedir cotización exacta' : 'Consultar'} <ArrowUpRight size={14} />
+          </MagBtn>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PublicNav({ onQuote, shopConfig }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenu]     = useState(false);
@@ -910,8 +1012,10 @@ export default function CatalogPage() {
 
   const [activeCategory, setCategory] = useState('todos');
   const [quoteProduct,   setQuoteFor]      = useState(undefined);
+  const [quoteEstimate,  setQuoteEstimate] = useState(null);
   const [products,       setProducts]      = useState([]);
   const [collections,    setCollections]   = useState([]);
+  const [pricingRules,   setPricingRules]  = useState([]);
   const [shopConfig,     setShopConfig]    = useState(null);
   const [notFound,       setNotFound]      = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
@@ -934,16 +1038,19 @@ export default function CatalogPage() {
       if (cfgErr || !cfg) { setNotFound(true); setLoadingCatalog(false); return; }
       setShopConfig(cfg);
 
-      // 2. Cargar productos y colecciones del owner
-      const [prodRes, colRes] = await Promise.all([
+      // 2. Cargar productos, colecciones y tarifas del owner
+      const [prodRes, colRes, pricingRes] = await Promise.all([
         supabase.from('catalog_products').select('*')
           .eq('owner_id', cfg.owner_id).eq('visible', true).order('sort_order'),
         supabase.from('catalog_collections').select('*')
           .eq('owner_id', cfg.owner_id).order('sort_order'),
+        supabase.from('pricing_rules').select('*')
+          .eq('owner_id', cfg.owner_id).eq('visible', true).order('sort_order'),
       ]);
 
       setProducts(prodRes.data || []);
       setCollections(colRes.data || []);
+      setPricingRules(pricingRes.data || []);
       setLoadingCatalog(false);
     }
     load();
@@ -1213,6 +1320,15 @@ export default function CatalogPage() {
       {/* ── CAROUSEL SHOWCASE (solo si hay 4+ productos) ── */}
       {products.length >= 4 && <Carousel items={products} onQuote={setQuoteFor} country={shopConfig?.country} />}
 
+      {/* ── ESTIMADOR — solo si el taller cargó tarifas ── */}
+      {pricingRules.length > 0 && (
+        <PricingEstimator
+          rules={pricingRules}
+          country={shopConfig?.country}
+          onQuote={(estimate) => { setQuoteEstimate(estimate); setQuoteFor(null); }}
+        />
+      )}
+
       {/* ── CATÁLOGO GRID ────────────────────────────── */}
       <section id="catalogo" className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
@@ -1460,7 +1576,8 @@ export default function CatalogPage() {
         {quoteProduct !== undefined && (
           <QuoteModal
             product={quoteProduct}
-            onClose={() => setQuoteFor(undefined)}
+            estimate={quoteEstimate}
+            onClose={() => { setQuoteFor(undefined); setQuoteEstimate(null); }}
             ownerId={shopConfig?.owner_id}
           />
         )}
