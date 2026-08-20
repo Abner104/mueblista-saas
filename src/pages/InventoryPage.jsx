@@ -14,8 +14,12 @@ import CurrencyInput from '../components/shared/CurrencyInput';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
 
 // ── Constantes ────────────────────────────────────────────────────
-const CATEGORIES = ['melamina', 'herraje', 'canto', 'corredera', 'tornillería', 'vidrio', 'iluminación', 'otro'];
-const UNITS = ['unidad', 'plancha', 'metro', 'metro²', 'kg', 'litro', 'caja', 'rollo'];
+const CATEGORIES = [
+  'melamina', 'herraje', 'canto', 'corredera', 'tornillería', 'vidrio', 'iluminación',
+  'drywall', 'perfilería', 'pvc', 'cielo raso', 'masilla / cinta', 'aislante', 'pintura',
+  'otro',
+];
+const UNITS = ['unidad', 'plancha', 'metro', 'metro²', 'metro lineal', 'kg', 'litro', 'caja', 'rollo', 'saco'];
 
 const EMPTY_MAT = {
   supplier_id: '', name: '', sku: '', category: 'melamina',
