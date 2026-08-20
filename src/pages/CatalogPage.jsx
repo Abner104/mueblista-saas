@@ -55,9 +55,6 @@ const W_BASE = {
 // se actualiza dinámicamente cuando carga shopConfig
 const W = { ...W_BASE };
 
-// ─── DATOS DE DEMO ─────────────────────────────────────────────────────────
-// En producción esto vendría de Supabase (tabla products/catalog)
-
 // Etiquetas conocidas para las categorías que ofrece el editor de catálogo
 // (SalesRoomPage). Cualquier categoría fuera de este mapa se muestra con
 // su nombre capitalizado tal cual, para no perder productos de categorías
@@ -75,87 +72,6 @@ const CATEGORY_LABELS = {
 function categoryLabel(id) {
   return CATEGORY_LABELS[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 }
-
-const catalog = [
-  {
-    id: 1,
-    name: 'Placard Corredera Roble',
-    category: 'dormitorio',
-    price: 1850000,
-    time: '12 días hábiles',
-    tag: 'Más pedido',
-    wood: 'MDF enchapado roble',
-    finish: 'Barniz satinado al agua',
-    dims: '2.40 × 2.00 × 0.60 m',
-    details: ['Riel alemán silencioso', 'Tirador de acero inox', 'Interior melamina blanca'],
-    description: 'Diseño limpio con frentes enchapados en roble natural. Deslizamiento suave garantizado por rieles importados.',
-  },
-  {
-    id: 2,
-    name: 'Cocina Integral a Medida',
-    category: 'cocina',
-    price: 4200000,
-    time: '25 días hábiles',
-    tag: 'Premium',
-    wood: 'MDF lacado + frentes roble',
-    finish: 'Laca mate industrial',
-    dims: 'Medida a pedido',
-    details: ['Bisagra Blum amortiguada', 'Extracción total', 'Zócalo regulable'],
-    description: 'Cocina completa diseñada para tu espacio. Combinamos funcionalidad máxima con estética de carpintería fina.',
-  },
-  {
-    id: 3,
-    name: 'Escritorio Flotante Nogal',
-    category: 'oficina',
-    price: 680000,
-    time: '7 días hábiles',
-    tag: 'Clásico',
-    wood: 'Melamina nogal texturado',
-    finish: 'Canto ABS 2 mm',
-    dims: '1.60 × 0.75 m',
-    details: ['Soporte acero laqueado', 'Pasacables', 'Fijación a stud'],
-    description: 'Escritorio moderno que aprovecha la pared. Perfecto para home office sin ocupar espacio en el piso.',
-  },
-  {
-    id: 4,
-    name: 'Mesa de Comedor Rústica',
-    category: 'sala',
-    price: 1350000,
-    time: '15 días hábiles',
-    tag: 'Artesanal',
-    wood: 'Pino macizo cepillado',
-    finish: 'Aceite de tung + cera',
-    dims: '1.80 × 0.90 × 0.76 m',
-    details: ['Patas de hierro forjado', 'Cola de carpintero', 'Veta natural visible'],
-    description: 'Mesa maciza trabajada a mano. El veteado natural de la madera hace que cada pieza sea única.',
-  },
-  {
-    id: 5,
-    name: 'Biblioteca Empotrada',
-    category: 'oficina',
-    price: 2100000,
-    time: '18 días hábiles',
-    tag: 'A medida',
-    wood: 'MDF crudo + frente cedro',
-    finish: 'Epoxi + barniz cedro',
-    dims: '3.00 × 2.40 × 0.35 m',
-    details: ['LED integrado', 'Estantes regulables', 'Panel trasero contraplacado'],
-    description: 'Biblioteca que cubre la pared completa. Iluminación LED integrada que resalta cada objeto.',
-  },
-  {
-    id: 6,
-    name: 'Cajonera Organizadora',
-    category: 'dormitorio',
-    price: 920000,
-    time: '10 días hábiles',
-    tag: 'Versátil',
-    wood: 'Melamina blanca + tapa roble',
-    finish: 'Enchape natural',
-    dims: '0.80 × 1.10 × 0.45 m',
-    details: ['5 cajones extracción total', 'Tirador fresado', 'Ruedas bloqueables'],
-    description: 'Cajonera con cierre amortiguado en todos los cajones. Mezcla de melamina blanca y detalle en roble.',
-  },
-];
 
 const steps = [
   { icon: Ruler,  label: 'Medición',    desc: 'Visita técnica sin costo o planos digitales. Relevamos cada detalle del espacio.' },

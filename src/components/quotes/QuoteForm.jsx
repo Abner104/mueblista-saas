@@ -58,6 +58,7 @@ export default function QuoteForm({ onSaved, prefill }) {
   };
 
   const [clients, setClients] = useState([]);
+  const [sellers, setSellers] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [matSearch, setMatSearch] = useState('');
   const [saving, setSaving] = useState(false);
@@ -79,19 +80,22 @@ export default function QuoteForm({ onSaved, prefill }) {
     area_height_m: '',
     area_price_m2: '',
     includes_materials: true, // false = el cliente pone el material, solo se cobra instalación
+    seller_worker_id: '',
   });
   const [selectedItems, setSelectedItems] = useState([]);
 
   useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
-    const [{ data: c }, { data: m }] = await Promise.all([
+    const [{ data: c }, { data: m }, { data: s }] = await Promise.all([
       supabase.from('clients').select('id,name').order('name'),
       supabase.from('materials').select('id,name,unit,cost,stock').order('name'),
+      supabase.from('workers').select('id,name').eq('worker_role', 'vendedor').eq('status', 'active').order('name'),
     ]);
     const clientList = c || [];
     setClients(clientList);
     setMaterials(m || []);
+    setSellers(s || []);
 
     if (prefill?.clientName) {
       const normalizedName = prefill.clientName.trim().toLowerCase();
@@ -228,6 +232,7 @@ export default function QuoteForm({ onSaved, prefill }) {
         area_width_m: isArea ? Number(form.area_width_m || 0) : null,
         area_height_m: isArea ? Number(form.area_height_m || 0) : null,
         area_price_m2: isArea ? Number(form.area_price_m2 || 0) : null,
+        seller_worker_id: form.seller_worker_id || null,
         subtotal: totals.subtotal,
         total: totals.total,
       })
@@ -248,7 +253,7 @@ export default function QuoteForm({ onSaved, prefill }) {
       labor_cost: 0, extra_cost: 0,
       margin_mode: 'percent', margin_percent: 30, margin_amount: 0,
       billing_mode: 'fixed', area_width_m: '', area_height_m: '', area_price_m2: '',
-      includes_materials: true,
+      includes_materials: true, seller_worker_id: '',
     });
     setSelectedItems([]);
     if (onSaved) onSaved();
@@ -307,6 +312,23 @@ export default function QuoteForm({ onSaved, prefill }) {
           />
         </div>
       </div>
+
+      {sellers.length > 0 && (
+        <div>
+          <label className={`block text-xs mb-1 uppercase tracking-wider ${tk.label}`}>Vendedor <span className="normal-case opacity-70">(para calcular su comisión)</span></label>
+          <div className="relative">
+            <select
+              value={form.seller_worker_id}
+              onChange={(e) => setField('seller_worker_id', e.target.value)}
+              className={`${inputBase} appearance-none`}
+            >
+              <option value="">— Sin vendedor asignado —</option>
+              {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <ChevronDown size={14} className={`absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${tk.label}`} />
+          </div>
+        </div>
+      )}
 
       {/* Tipo de trabajo — texto libre con sugerencias */}
       <div>

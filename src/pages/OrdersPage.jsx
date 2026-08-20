@@ -60,7 +60,7 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros, country }) {
     // "approved" queda afuera a propósito: aprobar una cotización ya crea
     // su orden automáticamente (QuotesPage.jsx). Ofrecerla acá también
     // llevaba a crear una segunda orden duplicada para el mismo trabajo.
-    supabase.from('quotes').select('id, title, total, client_id, clients(name)')
+    supabase.from('quotes').select('id, title, total, client_id, clients(name), quote_items(*)')
       .in('status', ['sent', 'draft'])
       .order('created_at', { ascending: false })
       .then(({ data }) => setQuotes(data || []));
@@ -105,6 +105,21 @@ function NewOrderModal({ onClose, onCreated, isDark, maestros, country }) {
       await supabase.from('order_tasks').insert(
         DEFAULT_TASKS.map((t, i) => ({ sale_id: sale.id, owner_id: ownerId, stage: t.stage, label: t.label, sort_order: i }))
       );
+    }
+
+    // Descontar stock — mismo comportamiento que aprobar desde Cotizaciones,
+    // para que el inventario no quede desincronizado según qué camino se use.
+    for (const item of quote?.quote_items || []) {
+      if (!item.material_id) continue;
+      const { data: mat } = await supabase.from('materials').select('stock').eq('id', item.material_id).single();
+      if (!mat) continue;
+      const newStock = Math.max(0, Number(mat.stock) - Number(item.quantity));
+      await supabase.from('materials').update({ stock: newStock }).eq('id', item.material_id);
+      await supabase.from('material_movements').insert({
+        owner_id: ownerId, material_id: item.material_id,
+        type: 'out', quantity: Number(item.quantity),
+        note: `Orden creada: ${quote?.title || ''}`,
+      });
     }
 
     await supabase.from('quotes').update({ status: 'approved' }).eq('id', selectedQuote);

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Scissors, Plus, Trash2, ChevronDown,
@@ -159,19 +159,39 @@ export default function CutOptimizerPage() {
   const isDark = theme === 'dark';
   const { limits, loading: subLoading, country } = useSubscriptionStore();
 
-  // Plancha
-  const [sheetPreset, setSheetPreset]   = useState(0);
-  const [sheetWidth,  setSheetWidth]    = useState(1830);
-  const [sheetHeight, setSheetHeight]   = useState(2440);
-  const [allowRotate, setAllowRotate]   = useState(true);
-
-  // Piezas
-  const [pieces, setPieces] = useState([
+  const DRAFT_KEY = 'carpento_cut_optimizer_draft';
+  const DEMO_PIECES = [
     { name: 'Lateral',  width_mm: 600,  height_mm: 2200, quantity: 2 },
     { name: 'Repisa',   width_mm: 556,  height_mm: 400,  quantity: 5 },
     { name: 'Fondo',    width_mm: 1180, height_mm: 2190, quantity: 1 },
     { name: 'Puerta',   width_mm: 596,  height_mm: 2196, quantity: 2 },
-  ]);
+  ];
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  const draft = loadDraft();
+
+  // Plancha
+  const [sheetPreset, setSheetPreset]   = useState(0);
+  const [sheetWidth,  setSheetWidth]    = useState(draft?.sheetWidth  ?? 1830);
+  const [sheetHeight, setSheetHeight]   = useState(draft?.sheetHeight ?? 2440);
+  const [allowRotate, setAllowRotate]   = useState(draft?.allowRotate ?? true);
+
+  // Piezas — si había un trabajo en curso guardado localmente, lo recupera
+  // en vez de perderlo al recargar o cambiar de pestaña.
+  const [pieces, setPieces] = useState(draft?.pieces ?? DEMO_PIECES);
+  const [restoredDraft] = useState(!!draft);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ pieces, sheetWidth, sheetHeight, allowRotate }));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [pieces, sheetWidth, sheetHeight, allowRotate]);
 
   const [activeSheet, setActiveSheet] = useState(0);
 
@@ -355,7 +375,9 @@ export default function CutOptimizerPage() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className={`text-2xl md:text-3xl font-bold ${tk.text}`}>Optimizador de cortes</h1>
-          <p className={`${tk.sub} mt-1`}>Calculá cuántas planchas necesitás y cómo acomodar las piezas.</p>
+          <p className={`${tk.sub} mt-1`}>
+            {restoredDraft ? 'Recuperamos tu último trabajo guardado en este navegador.' : 'Calculá cuántas planchas necesitás y cómo acomodar las piezas.'}
+          </p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
           <button

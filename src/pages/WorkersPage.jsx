@@ -415,11 +415,11 @@ function WorkerCard({ worker, onEdit, onDelete, commissions, isDark, country }) 
         <div className="flex items-center gap-1.5 text-xs text-emerald-500">
           <CheckCircle2 size={12} /> Acceso activo
         </div>
-      ) : worker.email ? (
-        <div className={`flex items-center gap-1.5 text-xs ${tk.sub}`}>
+      ) : (
+        <div className="flex items-center gap-1.5 text-xs text-amber-500">
           <KeyRound size={12} /> Sin acceso — editá para crear credenciales
         </div>
-      ) : null}
+      )}
 
       {/* Acciones */}
       <div className="flex gap-2 pt-1">
