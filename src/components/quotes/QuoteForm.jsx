@@ -200,9 +200,12 @@ export default function QuoteForm({ onSaved, prefill }) {
   }
 
   function toggleIncludesMaterials() {
+    // Si se apaga habiendo materiales cargados, se perderían sin sumar
+    // al total — se avisa antes de borrarlos en vez de hacerlo en silencio.
+    if (form.includes_materials && selectedItems.length > 0) {
+      if (!confirm(`Vas a quitar ${selectedItems.length} material(es) ya cargado(s) de esta cotización. ¿Continuar?`)) return;
+    }
     setForm((prev) => ({ ...prev, includes_materials: !prev.includes_materials }));
-    // Si se apaga, cualquier material ya cargado dejaría de sumar al
-    // total sin desaparecer de la vista — mejor limpiarlo directo.
     setSelectedItems([]);
   }
 

@@ -586,18 +586,23 @@ export default function OrdersPage() {
       </div>
 
       {/* Tabs — estado */}
-      <div className="flex gap-2 flex-wrap">
-        {[['all', 'Todas'], ...PROD_STATUSES.map(s => [s.value, s.label])].map(([val, label]) => (
-          <button key={val} onClick={() => setFilterStatus(val)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${filterStatus === val ? tk.tabActive : tk.tab}`}>
-            {label}
-            {val !== 'all' && <span className="ml-1.5 text-xs opacity-60">{sales.filter(s => s.status === val).length}</span>}
-          </button>
-        ))}
+      <div className="space-y-1.5">
+        <p className={`text-[11px] uppercase tracking-wider font-semibold ${tk.sub}`}>Estado</p>
+        <div className="flex gap-2 flex-wrap">
+          {[['all', 'Todas'], ...PROD_STATUSES.map(s => [s.value, s.label])].map(([val, label]) => (
+            <button key={val} onClick={() => setFilterStatus(val)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition border ${filterStatus === val ? tk.tabActive : tk.tab}`}>
+              {label}
+              {val !== 'all' && <span className="ml-1.5 text-xs opacity-60">{sales.filter(s => s.status === val).length}</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tabs — fecha de entrega */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="space-y-1.5">
+        <p className={`text-[11px] uppercase tracking-wider font-semibold ${tk.sub}`}>Fecha de entrega</p>
+        <div className="flex gap-2 flex-wrap">
         {DATE_FILTERS.map(([val, label]) => (
           <button key={val} onClick={() => setFilterDate(val)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${filterDate === val ? tk.tabActive : tk.tab}`}>
@@ -605,6 +610,7 @@ export default function OrdersPage() {
             {val !== 'all' && <span className="ml-1.5 text-xs opacity-60">{sales.filter(s => dateBucket(s.due_date) === val).length}</span>}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Lista */}

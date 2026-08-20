@@ -372,7 +372,7 @@ function WorkerCard({ worker, onEdit, onDelete, commissions, isDark, country }) 
             {statusInfo.label}
           </span>
           {roleInfo && (
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
+            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-500'}`}>
               {roleInfo.label}
             </span>
           )}

@@ -334,30 +334,41 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
         </div>
 
         {/* Acciones */}
-        <div className="px-6 py-4 flex flex-wrap gap-3">
-          <button onClick={()=>generatePDF(quote, country)}
-            className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition">
-            <Download size={14}/> Descargar PDF
-          </button>
+        <div className="px-6 py-4 space-y-2">
+          <div className="flex flex-wrap gap-3">
+            <button onClick={()=>generatePDF(quote, country)}
+              className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition">
+              <Download size={14}/> Descargar PDF
+            </button>
+            {quote.clients?.phone ? (
+              <a href={`https://wa.me/${quote.clients.phone.replace(/\D/g,'')}?text=${encodeURIComponent(
+                `Hola ${quote.clients.name}, te envío la cotización para *${quote.title}*.\n\n` +
+                `• Tipo: ${quote.furniture_type || '—'}\n` +
+                (quote.billing_mode === 'area'
+                  ? `• Superficie: ${quote.area_width_m}×${quote.area_height_m}m (${(Number(quote.area_width_m)*Number(quote.area_height_m)).toFixed(2)} m²)\n`
+                  : `• Dimensiones: ${quote.width_mm}×${quote.height_mm}×${quote.depth_mm}mm\n`) +
+                (quote.includes_materials === false ? `• Solo instalación (materiales por tu cuenta)\n` : '') +
+                `• Total: ${formatCurrency(quote.total, country)}\n\n` +
+                `Cualquier consulta estoy disponible.`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition">
+                <MessageCircle size={14}/> Enviar por WhatsApp
+              </a>
+            ) : (
+              <span className={`flex items-center gap-2 border border-dashed rounded-xl px-4 py-2.5 text-sm ${tk.sub} ${isDark ? 'border-zinc-700' : 'border-stone-300'}`}>
+                <MessageCircle size={14} className="opacity-40"/> Sin teléfono cargado
+              </span>
+            )}
+            <button onClick={()=>onDelete(quote.id)}
+              className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl px-4 py-2.5 text-sm font-medium transition">
+              <Trash2 size={14}/> Eliminar
+            </button>
+          </div>
           {quote.clients?.phone && (
-            <a href={`https://wa.me/${quote.clients.phone.replace(/\D/g,'')}?text=${encodeURIComponent(
-              `Hola ${quote.clients.name}, te envío la cotización para *${quote.title}*.\n\n` +
-              `• Tipo: ${quote.furniture_type || '—'}\n` +
-              (quote.billing_mode === 'area'
-                ? `• Superficie: ${quote.area_width_m}×${quote.area_height_m}m (${(Number(quote.area_width_m)*Number(quote.area_height_m)).toFixed(2)} m²)\n`
-                : `• Dimensiones: ${quote.width_mm}×${quote.height_mm}×${quote.depth_mm}mm\n`) +
-              (quote.includes_materials === false ? `• Solo instalación (materiales por tu cuenta)\n` : '') +
-              `• Total: ${formatCurrency(quote.total, country)}\n\n` +
-              `Cualquier consulta estoy disponible.`)}`}
-              target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 rounded-xl px-4 py-2.5 text-sm font-medium transition">
-              <MessageCircle size={14}/> Enviar por WhatsApp
-            </a>
+            <p className={`text-[11px] ${tk.sub}`}>
+              WhatsApp no permite adjuntar el PDF automáticamente — descargalo primero y adjuntalo vos en el chat.
+            </p>
           )}
-          <button onClick={()=>onDelete(quote.id)}
-            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl px-4 py-2.5 text-sm font-medium transition">
-            <Trash2 size={14}/> Eliminar
-          </button>
         </div>
       </motion.div>
     </motion.div>
@@ -519,7 +530,14 @@ export default function QuotesPage() {
                       </span>
                     )}
                   </p>
-                  <p className={`text-sm truncate ${tk.sub}`}>{q.clients?.name} · {q.furniture_type}</p>
+                  <p className={`text-sm truncate ${tk.sub} flex items-center gap-1.5`}>
+                    <span className="truncate">{q.clients?.name} · {q.furniture_type}</span>
+                    {!q.clients?.phone && (
+                      <span title="Sin teléfono — no se puede enviar por WhatsApp" className="shrink-0">
+                        <MessageCircle size={12} className="opacity-30" />
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${SC[q.status]}`}>
                   {STATUS_LABELS[q.status]}

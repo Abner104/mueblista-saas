@@ -349,6 +349,13 @@ export default function AppShell() {
                 </NavLink>
               );
             })}
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-2xl transition-all ${tk.bottomIdle}`}
+            >
+              <Menu size={20} />
+              <span className="text-[10px] font-medium leading-none">Más</span>
+            </button>
           </div>
         </nav>
       </div>
