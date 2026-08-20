@@ -4,6 +4,7 @@ import {
   Boxes, Plus, Trash2, X, Search, AlertTriangle,
   TrendingUp, TrendingDown, ChevronDown,
   ArrowUpCircle, ArrowDownCircle, RefreshCw,
+  Pencil, History, MapPin,
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
@@ -19,7 +20,7 @@ const UNITS = ['unidad', 'plancha', 'metro', 'metro²', 'kg', 'litro', 'caja', '
 const EMPTY_MAT = {
   supplier_id: '', name: '', sku: '', category: 'melamina',
   unit: 'unidad', cost: '', stock: '', min_stock: '',
-  sheet_width_mm: '', sheet_height_mm: '',
+  sheet_width_mm: '', sheet_height_mm: '', location: '',
 };
 const EMPTY_MOV = { material_id: '', type: 'in', quantity: '', note: '' };
 
@@ -27,6 +28,7 @@ const MOV_TYPE = {
   in:         { label: 'Entrada',  icon: ArrowUpCircle,   color: 'text-emerald-400' },
   out:        { label: 'Salida',   icon: ArrowDownCircle, color: 'text-red-400' },
   adjustment: { label: 'Ajuste',   icon: RefreshCw,       color: 'text-blue-400' },
+  waste:      { label: 'Merma',    icon: AlertTriangle,   color: 'text-orange-400' },
 };
 
 // ── Componente stock-badge ────────────────────────────────────────
@@ -60,9 +62,10 @@ function StockBar({ stock, minStock, isDark }) {
   );
 }
 
-// ── Modal nuevo material ──────────────────────────────────────────
-function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
-  const [form, setForm] = useState(EMPTY_MAT);
+// ── Modal nuevo/editar material ─────────────────────────────────────
+function MaterialModal({ material, suppliers, onClose, onSaved, isDark }) {
+  const isEdit = !!material;
+  const [form, setForm] = useState(isEdit ? { ...EMPTY_MAT, ...material, supplier_id: material.supplier_id || '' } : EMPTY_MAT);
   const [loading, setLoading] = useState(false);
 
   const tk = isDark
@@ -74,17 +77,23 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('materials').insert({
-      ...form,
-      owner_id: user.id,
+    const payload = {
+      name: form.name, sku: form.sku, category: form.category, unit: form.unit,
+      location: form.location,
       cost: Number(form.cost || 0),
       stock: Number(form.stock || 0),
       min_stock: Number(form.min_stock || 0),
       sheet_width_mm: form.sheet_width_mm ? Number(form.sheet_width_mm) : null,
       sheet_height_mm: form.sheet_height_mm ? Number(form.sheet_height_mm) : null,
       supplier_id: form.supplier_id || null,
-    });
+    };
+    let error;
+    if (isEdit) {
+      ({ error } = await supabase.from('materials').update(payload).eq('id', material.id));
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      ({ error } = await supabase.from('materials').insert({ ...payload, owner_id: user.id }));
+    }
     setLoading(false);
     if (error) { alert(error.message); return; }
     onSaved();
@@ -109,7 +118,7 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`flex items-center justify-between p-6 border-b ${tk.border}`}>
-          <h2 className={`text-xl font-bold ${tk.text}`}>Nuevo material</h2>
+          <h2 className={`text-xl font-bold ${tk.text}`}>{isEdit ? 'Editar material' : 'Nuevo material'}</h2>
           <button onClick={onClose} className={tk.label}><X size={20} /></button>
         </div>
 
@@ -150,15 +159,22 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
             </div>
           </div>
 
-          {/* Proveedor */}
-          <div>
-            <Label>Proveedor</Label>
-            <div className="relative">
-              <select value={form.supplier_id} onChange={(e) => setF('supplier_id', e.target.value)} className={SelCls}>
-                <option value="">— Sin proveedor —</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <ChevronDown size={12} className={`absolute right-3 top-1/2 -translate-y-1/2 ${tk.label} pointer-events-none`} />
+          {/* Proveedor + Ubicación */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Proveedor</Label>
+              <div className="relative">
+                <select value={form.supplier_id} onChange={(e) => setF('supplier_id', e.target.value)} className={SelCls}>
+                  <option value="">— Sin proveedor —</option>
+                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <ChevronDown size={12} className={`absolute right-3 top-1/2 -translate-y-1/2 ${tk.label} pointer-events-none`} />
+              </div>
+            </div>
+            <div>
+              <Label>Ubicación</Label>
+              <input value={form.location} onChange={(e) => setF('location', e.target.value)}
+                placeholder="Ej: Estante 3" className={InputCls} />
             </div>
           </div>
 
@@ -189,7 +205,7 @@ function MaterialModal({ suppliers, onClose, onSaved, isDark }) {
 
           <button disabled={loading}
             className="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-black font-bold rounded-2xl py-3.5 transition mt-2">
-            {loading ? 'Guardando…' : 'Guardar material'}
+            {loading ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Guardar material'}
           </button>
         </form>
       </motion.div>
@@ -215,7 +231,7 @@ function MovementModal({ materials, onClose, onSaved, isDark }) {
     const q = Number(form.quantity || 0);
     const s = Number(selected.stock || 0);
     if (form.type === 'in') return s + q;
-    if (form.type === 'out') return Math.max(0, s - q);
+    if (form.type === 'out' || form.type === 'waste') return Math.max(0, s - q);
     if (form.type === 'adjustment') return q;
     return s;
   }, [form.quantity, form.type, selected]);
@@ -225,7 +241,7 @@ function MovementModal({ materials, onClose, onSaved, isDark }) {
     if (!form.material_id) return alert('Seleccioná un material');
     const qty = Number(form.quantity || 0);
     if (qty <= 0) return alert('Cantidad debe ser mayor a 0');
-    if (form.type === 'out' && newStock < 0) return alert('Stock insuficiente');
+    if ((form.type === 'out' || form.type === 'waste') && newStock < 0) return alert('Stock insuficiente');
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -282,7 +298,7 @@ function MovementModal({ materials, onClose, onSaved, isDark }) {
           {/* Tipo */}
           <div>
             <Label>Tipo de movimiento</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {Object.entries(MOV_TYPE).map(([key, { label, icon: Icon, color }]) => (
                 <button
                   key={key}
@@ -339,6 +355,82 @@ function MovementModal({ materials, onClose, onSaved, isDark }) {
   );
 }
 
+// ── Modal historial de movimientos ──────────────────────────────────
+function HistoryModal({ material, onClose, isDark }) {
+  const [movements, setMovements] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const tk = isDark
+    ? { bg: 'bg-zinc-950', border: 'border-zinc-800', label: 'text-zinc-400', text: 'text-white', sub: 'text-zinc-500', row: 'border-zinc-800/50' }
+    : { bg: 'bg-white', border: 'border-stone-200', label: 'text-stone-500', text: 'text-stone-900', sub: 'text-stone-400', row: 'border-stone-100' };
+
+  useEffect(() => {
+    supabase.from('material_movements')
+      .select('*')
+      .eq('material_id', material.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { setMovements(data || []); setLoading(false); });
+  }, [material.id]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        className={`${tk.bg} border ${tk.border} rounded-3xl w-full max-w-lg max-h-[85vh] overflow-y-auto`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`flex items-center justify-between p-6 border-b ${tk.border} sticky top-0 ${tk.bg}`}>
+          <div>
+            <h2 className={`text-xl font-bold ${tk.text}`}>Historial de movimientos</h2>
+            <p className={`text-sm ${tk.sub}`}>{material.name}</p>
+          </div>
+          <button onClick={onClose} className={tk.label}><X size={20} /></button>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-700 border-t-amber-500" />
+            </div>
+          ) : movements.length === 0 ? (
+            <p className={`text-sm text-center py-10 ${tk.sub}`}>Todavía no hay movimientos registrados.</p>
+          ) : (
+            <div className="space-y-1">
+              {movements.map((mv) => {
+                const info = MOV_TYPE[mv.type] || MOV_TYPE.adjustment;
+                const Icon = info.icon;
+                const sign = mv.type === 'in' ? '+' : mv.type === 'adjustment' ? '=' : '−';
+                return (
+                  <div key={mv.id} className={`flex items-center gap-3 py-3 border-b last:border-0 ${tk.row}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? 'bg-zinc-900' : 'bg-stone-100'}`}>
+                      <Icon size={14} className={info.color} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${tk.text}`}>{info.label}</p>
+                      {mv.note && <p className={`text-xs truncate ${tk.sub}`}>{mv.note}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={`text-sm font-bold ${info.color}`}>{sign}{mv.quantity}</p>
+                      <p className={`text-[10px] ${tk.sub}`}>
+                        {new Date(mv.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ── Página principal ──────────────────────────────────────────────
 export default function InventoryPage() {
   const { theme } = useThemeStore();
@@ -349,11 +441,12 @@ export default function InventoryPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('all');
-  const [showMatModal, setShowMatModal] = useState(false);
   const [showMovModal, setShowMovModal] = useState(false);
   const [movingMat, setMovingMat] = useState(null); // pre-selección
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingMat, setEditingMat] = useState(null); // material a editar, o true para "nuevo"
+  const [historyMat, setHistoryMat] = useState(null);
 
   const tk = isDark ? {
     card:    'bg-zinc-900 border-zinc-800',
@@ -440,7 +533,7 @@ export default function InventoryPage() {
             <ArrowUpCircle size={16} /> Entrada / Salida
           </button>
           <button
-            onClick={() => setShowMatModal(true)}
+            onClick={() => setEditingMat(true)}
             className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl px-5 py-2.5 text-sm transition shadow-lg shadow-amber-500/20"
           >
             <Plus size={18} /> Nuevo material
@@ -522,7 +615,7 @@ export default function InventoryPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-4 items-center border-b last:border-0 transition ${tk.row} ${isDark ? 'border-zinc-800/50' : 'border-stone-100'} min-w-[480px]`}
+                    className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-4 items-center border-b last:border-0 transition ${tk.row} ${isDark ? 'border-zinc-800/50' : 'border-stone-100'} min-w-[560px]`}
                   >
                     {/* Nombre + cat + badges */}
                     <div className="min-w-0">
@@ -537,6 +630,11 @@ export default function InventoryPage() {
                         {mat.sku && <span className={`text-[10px] ${tk.sub}`}>{mat.sku}</span>}
                         {mat.sheet_width_mm && (
                           <span className={`text-[10px] ${tk.sub}`}>{mat.sheet_width_mm}×{mat.sheet_height_mm}mm</span>
+                        )}
+                        {mat.location && (
+                          <span className={`text-[10px] flex items-center gap-0.5 ${tk.sub}`}>
+                            <MapPin size={9} /> {mat.location}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -566,13 +664,27 @@ export default function InventoryPage() {
                     </p>
 
                     {/* Acciones */}
-                    <div className="flex items-center gap-1 w-16 justify-end">
+                    <div className="flex items-center gap-1 w-32 justify-end">
                       <button
                         onClick={() => openMovement(mat)}
                         title="Registrar entrada / salida"
                         className={`p-2 rounded-xl transition ${isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-amber-400' : 'hover:bg-stone-200 text-stone-400 hover:text-amber-600'}`}
                       >
                         <ArrowUpCircle size={14} />
+                      </button>
+                      <button
+                        onClick={() => setHistoryMat(mat)}
+                        title="Historial de movimientos"
+                        className={`p-2 rounded-xl transition ${isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-blue-400' : 'hover:bg-stone-200 text-stone-400 hover:text-blue-600'}`}
+                      >
+                        <History size={14} />
+                      </button>
+                      <button
+                        onClick={() => setEditingMat(mat)}
+                        title="Editar material"
+                        className={`p-2 rounded-xl transition ${isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-amber-400' : 'hover:bg-stone-200 text-stone-400 hover:text-amber-600'}`}
+                      >
+                        <Pencil size={14} />
                       </button>
                       <button
                         onClick={() => setPendingDelete(mat.id)}
@@ -593,11 +705,22 @@ export default function InventoryPage() {
 
       {/* ── Modales ── */}
       <AnimatePresence>
-        {showMatModal && (
+        {editingMat && (
           <MaterialModal
+            material={editingMat === true ? null : editingMat}
             suppliers={suppliers}
-            onClose={() => setShowMatModal(false)}
+            onClose={() => setEditingMat(null)}
             onSaved={fetchData}
+            isDark={isDark}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {historyMat && (
+          <HistoryModal
+            material={historyMat}
+            onClose={() => setHistoryMat(null)}
             isDark={isDark}
           />
         )}

@@ -109,17 +109,22 @@ function QuoteDetailModal({ quote, onClose, onStatusChange, onDelete, tk, isDark
       const { data: { user } } = await supabase.auth.getUser();
 
       // Descontar stock
+      const stockErrors = [];
       for (const item of quote.quote_items || []) {
         if (!item.material_id) continue;
-        const { data: mat } = await supabase.from('materials').select('stock').eq('id', item.material_id).single();
-        if (!mat) continue;
+        const { data: mat, error: readErr } = await supabase.from('materials').select('stock').eq('id', item.material_id).single();
+        if (readErr || !mat) { stockErrors.push(item.description || item.material_id); continue; }
         const newStock = Math.max(0, Number(mat.stock) - Number(item.quantity));
-        await supabase.from('materials').update({ stock: newStock }).eq('id', item.material_id);
+        const { error: updErr } = await supabase.from('materials').update({ stock: newStock }).eq('id', item.material_id);
+        if (updErr) { stockErrors.push(item.description || item.material_id); continue; }
         await supabase.from('material_movements').insert({
           owner_id: user.id, material_id: item.material_id,
           type: 'out', quantity: Number(item.quantity),
           note: `Cotización aprobada: ${quote.title}`,
         });
+      }
+      if (stockErrors.length > 0) {
+        alert(`La cotización se aprobó, pero no se pudo descontar stock de: ${stockErrors.join(', ')}. Revisalo manualmente en Inventario.`);
       }
 
       // Crear orden de producción automáticamente
