@@ -10,6 +10,7 @@ import { useThemeStore } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
 import { useShopCountry } from '../lib/useShopCountry';
 import CurrencyInput from '../components/shared/CurrencyInput';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 
 // ── Constantes ────────────────────────────────────────────────────
 const CATEGORIES = ['melamina', 'herraje', 'canto', 'corredera', 'tornillería', 'vidrio', 'iluminación', 'otro'];
@@ -351,6 +352,8 @@ export default function InventoryPage() {
   const [showMatModal, setShowMatModal] = useState(false);
   const [showMovModal, setShowMovModal] = useState(false);
   const [movingMat, setMovingMat] = useState(null); // pre-selección
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const tk = isDark ? {
     card:    'bg-zinc-900 border-zinc-800',
@@ -401,10 +404,13 @@ export default function InventoryPage() {
                      m.sku?.toLowerCase().includes(search.toLowerCase()));
   }, [materials, filterCat, search]);
 
-  async function handleDelete(id) {
-    if (!confirm('¿Eliminar material?')) return;
-    await supabase.from('materials').delete().eq('id', id);
-    setMaterials((prev) => prev.filter((m) => m.id !== id));
+  async function handleDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await supabase.from('materials').delete().eq('id', pendingDelete);
+    setMaterials((prev) => prev.filter((m) => m.id !== pendingDelete));
+    setDeleting(false);
+    setPendingDelete(null);
   }
 
   function openMovement(mat = null) {
@@ -569,7 +575,7 @@ export default function InventoryPage() {
                         <ArrowUpCircle size={14} />
                       </button>
                       <button
-                        onClick={() => handleDelete(mat.id)}
+                        onClick={() => setPendingDelete(mat.id)}
                         title="Eliminar"
                         className={`p-2 rounded-xl transition ${tk.del}`}
                       >
@@ -607,6 +613,17 @@ export default function InventoryPage() {
           />
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="¿Eliminar este material?"
+        message="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={deleting}
+        isDark={isDark}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

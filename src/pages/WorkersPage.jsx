@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
 import { formatCurrency } from '../lib/formatters';
 import { useShopCountry } from '../lib/useShopCountry';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 
 const ROLES_DISPLAY = ['Maestro carpintero', 'Ayudante', 'Vendedor/a', 'Diseñador/a', 'Instalador', 'Administrativo', 'Otro'];
 
@@ -452,6 +453,8 @@ export default function WorkersPage() {
   const [editing,     setEditing]     = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [commissions, setCommissions] = useState({}); // workerId → monto comisión
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const tk = isDark
     ? { text: 'text-white', sub: 'text-zinc-400', tab: 'bg-zinc-900 text-zinc-400 border-zinc-800', tabA: 'bg-white text-black', kpi: 'bg-zinc-900 border-zinc-800' }
@@ -480,10 +483,13 @@ export default function WorkersPage() {
     setLoading(false);
   }
 
-  async function handleDelete(id) {
-    if (!confirm('¿Eliminar este trabajador?')) return;
-    await supabase.from('workers').delete().eq('id', id);
-    setWorkers(prev => prev.filter(w => w.id !== id));
+  async function handleDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await supabase.from('workers').delete().eq('id', pendingDelete);
+    setWorkers(prev => prev.filter(w => w.id !== pendingDelete));
+    setDeleting(false);
+    setPendingDelete(null);
   }
 
   function openNew()        { setEditing(null); setShowModal(true); }
@@ -560,7 +566,7 @@ export default function WorkersPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <AnimatePresence>
             {filtered.map(worker => (
-              <WorkerCard key={worker.id} worker={worker} onEdit={openEdit} onDelete={handleDelete} commissions={commissions} isDark={isDark} country={country} />
+              <WorkerCard key={worker.id} worker={worker} onEdit={openEdit} onDelete={setPendingDelete} commissions={commissions} isDark={isDark} country={country} />
             ))}
           </AnimatePresence>
         </div>
@@ -572,6 +578,17 @@ export default function WorkersPage() {
           <WorkerModal worker={editing} onClose={closeModal} onSaved={fetchAll} isDark={isDark} />
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="¿Eliminar este trabajador?"
+        message="Perderá el acceso al sistema si lo tenía. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={deleting}
+        isDark={isDark}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

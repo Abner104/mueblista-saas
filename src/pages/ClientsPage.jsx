@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Trash2, Phone, Mail, X, User } from 'lucide-react';
+import { Users, Plus, Trash2, Phone, Mail, X, User, Search } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 
 const EMPTY = { name: '', phone: '', email: '', address: '', notes: '' };
 
@@ -13,6 +14,9 @@ export default function ClientsPage() {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const tk = isDark ? {
     page:   'bg-zinc-950',
@@ -52,11 +56,20 @@ export default function ClientsPage() {
     fetchClients();
   }
 
-  async function handleDelete(id) {
-    if (!confirm('¿Eliminar cliente?')) return;
-    await supabase.from('clients').delete().eq('id', id);
-    setClients((prev) => prev.filter((c) => c.id !== id));
+  async function handleDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await supabase.from('clients').delete().eq('id', pendingDelete);
+    setClients((prev) => prev.filter((c) => c.id !== pendingDelete));
+    setDeleting(false);
+    setPendingDelete(null);
   }
+
+  const filteredClients = clients.filter((c) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return c.name?.toLowerCase().includes(q) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q);
+  });
 
   function setField(k, v) { setForm((p) => ({ ...p, [k]: v })); }
 
@@ -127,8 +140,22 @@ export default function ClientsPage() {
         )}
       </AnimatePresence>
 
-      {/* Contador */}
-      <p className={`text-sm ${tk.sub}`}>{clients.length} cliente{clients.length !== 1 ? 's' : ''} registrado{clients.length !== 1 ? 's' : ''}</p>
+      {/* Buscador + contador */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${tk.sub}`} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, teléfono o correo…"
+            className={`w-full rounded-2xl border pl-10 pr-4 py-2.5 text-sm outline-none transition ${tk.input}`}
+          />
+        </div>
+        <p className={`text-sm ${tk.sub}`}>
+          {filteredClients.length} de {clients.length} cliente{clients.length !== 1 ? 's' : ''}
+        </p>
+      </div>
 
       {/* Lista */}
       {clients.length === 0 ? (
@@ -136,10 +163,15 @@ export default function ClientsPage() {
           <Users size={40} strokeWidth={1} />
           <p className="text-sm">No hay clientes todavía</p>
         </div>
+      ) : filteredClients.length === 0 ? (
+        <div className={`flex flex-col items-center justify-center py-20 gap-3 ${tk.sub}`}>
+          <Search size={40} strokeWidth={1} />
+          <p className="text-sm">Ningún cliente coincide con "{search}"</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <AnimatePresence>
-            {clients.map((c, i) => (
+            {filteredClients.map((c, i) => (
               <motion.div
                 key={c.id}
                 initial={{ opacity: 0, y: 12 }}
@@ -159,7 +191,7 @@ export default function ClientsPage() {
                       {c.address && <p className={`text-xs ${tk.sub} truncate`}>{c.address}</p>}
                     </div>
                   </div>
-                  <button onClick={() => handleDelete(c.id)} className={`rounded-xl border px-2.5 py-1.5 text-xs transition shrink-0 ${tk.del}`}>
+                  <button onClick={() => setPendingDelete(c.id)} className={`rounded-xl border px-2.5 py-1.5 text-xs transition shrink-0 ${tk.del}`}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -186,6 +218,17 @@ export default function ClientsPage() {
           </AnimatePresence>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="¿Eliminar este cliente?"
+        message="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={deleting}
+        isDark={isDark}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

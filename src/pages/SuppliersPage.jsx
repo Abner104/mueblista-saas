@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Truck, Plus, Trash2, Phone, Mail, X } from 'lucide-react';
+import { Truck, Plus, Trash2, Phone, Mail, X, Search } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 
 const EMPTY = { name: '', phone: '', email: '', address: '', notes: '' };
 
@@ -13,6 +14,9 @@ export default function SuppliersPage() {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const tk = isDark ? {
     card:  'bg-zinc-900 border-zinc-800',
@@ -48,11 +52,20 @@ export default function SuppliersPage() {
     fetchSuppliers();
   }
 
-  async function handleDelete(id) {
-    if (!confirm('¿Eliminar proveedor?')) return;
-    await supabase.from('suppliers').delete().eq('id', id);
-    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+  async function handleDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await supabase.from('suppliers').delete().eq('id', pendingDelete);
+    setSuppliers((prev) => prev.filter((s) => s.id !== pendingDelete));
+    setDeleting(false);
+    setPendingDelete(null);
   }
+
+  const filteredSuppliers = suppliers.filter((s) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return s.name?.toLowerCase().includes(q) || s.phone?.includes(q) || s.email?.toLowerCase().includes(q);
+  });
 
   function setField(k, v) { setForm((p) => ({ ...p, [k]: v })); }
 
@@ -121,17 +134,36 @@ export default function SuppliersPage() {
         )}
       </AnimatePresence>
 
-      <p className={`text-sm ${tk.sub}`}>{suppliers.length} proveedor{suppliers.length !== 1 ? 'es' : ''}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${tk.sub}`} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, teléfono o correo…"
+            className={`w-full rounded-2xl border pl-10 pr-4 py-2.5 text-sm outline-none transition ${tk.input}`}
+          />
+        </div>
+        <p className={`text-sm ${tk.sub}`}>
+          {filteredSuppliers.length} de {suppliers.length} proveedor{suppliers.length !== 1 ? 'es' : ''}
+        </p>
+      </div>
 
       {suppliers.length === 0 ? (
         <div className={`flex flex-col items-center justify-center py-20 gap-3 ${tk.sub}`}>
           <Truck size={40} strokeWidth={1} />
           <p className="text-sm">No hay proveedores todavía</p>
         </div>
+      ) : filteredSuppliers.length === 0 ? (
+        <div className={`flex flex-col items-center justify-center py-20 gap-3 ${tk.sub}`}>
+          <Search size={40} strokeWidth={1} />
+          <p className="text-sm">Ningún proveedor coincide con "{search}"</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <AnimatePresence>
-            {suppliers.map((s, i) => (
+            {filteredSuppliers.map((s, i) => (
               <motion.div
                 key={s.id}
                 initial={{ opacity: 0, y: 12 }}
@@ -150,7 +182,7 @@ export default function SuppliersPage() {
                       {s.address && <p className={`text-xs ${tk.sub} truncate max-w-[160px]`}>{s.address}</p>}
                     </div>
                   </div>
-                  <button onClick={() => handleDelete(s.id)} className={`rounded-xl border px-2.5 py-1.5 text-xs transition shrink-0 ${tk.del}`}>
+                  <button onClick={() => setPendingDelete(s.id)} className={`rounded-xl border px-2.5 py-1.5 text-xs transition shrink-0 ${tk.del}`}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -176,6 +208,17 @@ export default function SuppliersPage() {
           </AnimatePresence>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="¿Eliminar este proveedor?"
+        message="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        loading={deleting}
+        isDark={isDark}
+        onConfirm={handleDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

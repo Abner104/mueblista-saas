@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useThemeStore } from '../store/themeStore';
 import { formatDate } from '../lib/formatters';
 import { useShopCountry } from '../lib/useShopCountry';
+import ConfirmDialog from '../components/shared/ConfirmDialog';
 
 const STATUS = {
   new:       { label: 'Nuevo',      color: 'bg-amber-500/20 text-amber-300',   icon: Clock },
@@ -27,6 +28,7 @@ const STATUS_LIGHT = {
 function LeadDetailModal({ lead, onClose, onStatusChange, onConvertQuote, onDelete, isDark, country }) {
   const [status, setStatus] = useState(lead.status);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const tk = isDark
     ? { bg: 'bg-zinc-950', border: 'border-zinc-800', card: 'bg-zinc-900', text: 'text-white', sub: 'text-zinc-400', sel: 'bg-zinc-900 border-zinc-700' }
@@ -122,13 +124,23 @@ function LeadDetailModal({ lead, onClose, onStatusChange, onConvertQuote, onDele
           </button>
 
           <button
-            onClick={() => onDelete(lead.id)}
+            onClick={() => setConfirmDelete(true)}
             className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl px-4 py-2.5 text-sm font-medium transition"
           >
             <XCircle size={14} /> Eliminar
           </button>
         </div>
       </motion.div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="¿Eliminar este lead?"
+        message="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        isDark={isDark}
+        onConfirm={() => onDelete(lead.id)}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </motion.div>
   );
 }
