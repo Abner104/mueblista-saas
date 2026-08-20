@@ -596,16 +596,110 @@ export default function InventoryPage() {
           <p className="text-sm">{search ? 'Sin resultados' : 'No hay materiales todavía'}</p>
         </div>
       ) : (
-        <div className={`rounded-3xl border ${tk.card} overflow-hidden`}>
+        <>
+          {/* ── Vista mobile: tarjetas apiladas ── */}
+          <div className="md:hidden space-y-3">
+            <AnimatePresence>
+              {filtered.map((mat, i) => {
+                const isLow = Number(mat.stock) <= Number(mat.min_stock);
+                return (
+                  <motion.div
+                    key={mat.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className={`rounded-2xl border p-4 space-y-3 ${tk.card}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`font-semibold text-sm ${tk.text} truncate`}>{mat.name}</p>
+                          <StockBadge stock={mat.stock} minStock={mat.min_stock} isDark={isDark} />
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full capitalize ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-100 text-stone-600'}`}>
+                            {mat.category}
+                          </span>
+                          {mat.sku && <span className={`text-[10px] ${tk.sub}`}>{mat.sku}</span>}
+                          {mat.sheet_width_mm && (
+                            <span className={`text-[10px] ${tk.sub}`}>{mat.sheet_width_mm}×{mat.sheet_height_mm}mm</span>
+                          )}
+                          {mat.location && (
+                            <span className={`text-[10px] flex items-center gap-0.5 ${tk.sub}`}>
+                              <MapPin size={9} /> {mat.location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className={`text-[10px] uppercase tracking-wider ${tk.sub}`}>Costo</p>
+                        <p className={`text-sm font-medium ${tk.text}`}>{formatCurrency(mat.cost, country)} <span className={`text-xs font-normal ${tk.sub}`}>/{mat.unit}</span></p>
+                      </div>
+                      <div>
+                        <p className={`text-[10px] uppercase tracking-wider ${tk.sub}`}>Stock</p>
+                        <p className={`text-sm font-bold ${isLow ? 'text-red-400' : tk.text}`}>
+                          {mat.stock} <span className={`text-xs font-normal ${tk.sub}`}>{mat.unit}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <StockBar stock={mat.stock} minStock={mat.min_stock} isDark={isDark} />
+
+                    {mat.suppliers?.name && (
+                      <p className={`text-xs ${tk.sub}`}>Proveedor: {mat.suppliers.name}</p>
+                    )}
+
+                    <div className={`flex items-center gap-1 pt-1 border-t ${isDark ? 'border-zinc-800' : 'border-stone-100'}`}>
+                      <button
+                        onClick={() => openMovement(mat)}
+                        title="Registrar entrada / salida"
+                        className={`flex-1 flex items-center justify-center p-2.5 rounded-xl transition ${isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-amber-400' : 'hover:bg-stone-200 text-stone-400 hover:text-amber-600'}`}
+                      >
+                        <ArrowUpCircle size={16} />
+                      </button>
+                      <button
+                        onClick={() => setHistoryMat(mat)}
+                        title="Historial de movimientos"
+                        className={`flex-1 flex items-center justify-center p-2.5 rounded-xl transition ${isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-blue-400' : 'hover:bg-stone-200 text-stone-400 hover:text-blue-600'}`}
+                      >
+                        <History size={16} />
+                      </button>
+                      <button
+                        onClick={() => setEditingMat(mat)}
+                        title="Editar material"
+                        className={`flex-1 flex items-center justify-center p-2.5 rounded-xl transition ${isDark ? 'hover:bg-zinc-700 text-zinc-500 hover:text-amber-400' : 'hover:bg-stone-200 text-stone-400 hover:text-amber-600'}`}
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={() => setPendingDelete(mat.id)}
+                        title="Eliminar"
+                        className={`flex-1 flex items-center justify-center p-2.5 rounded-xl transition ${tk.del}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+
+          {/* ── Vista desktop: tabla ── */}
+          <div className={`hidden md:block rounded-3xl border ${tk.card} overflow-hidden`}>
           <div className="overflow-x-auto">
           {/* Encabezado tabla */}
-          <div className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-3 text-xs uppercase tracking-wider ${tk.sub} border-b ${isDark ? 'border-zinc-800 bg-zinc-900/50' : 'border-stone-200 bg-stone-50'} min-w-[480px]`}>
+          <div className={`grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-5 py-3 text-xs uppercase tracking-wider ${tk.sub} border-b ${isDark ? 'border-zinc-800 bg-zinc-900/50' : 'border-stone-200 bg-stone-50'} min-w-[560px]`}>
             <span>Material</span>
             <span className="text-right w-20">Costo</span>
             <span className="text-right w-24">Stock</span>
-            <span className="w-32 hidden md:block">Barra</span>
-            <span className="w-24 hidden md:block">Proveedor</span>
-            <span className="w-16" />
+            <span className="w-32">Barra</span>
+            <span className="w-24">Proveedor</span>
+            <span className="w-32" />
           </div>
 
           <div className="divide-y divide-transparent">
@@ -658,12 +752,12 @@ export default function InventoryPage() {
                     </div>
 
                     {/* Barra */}
-                    <div className="w-32 hidden md:block">
+                    <div className="w-32">
                       <StockBar stock={mat.stock} minStock={mat.min_stock} isDark={isDark} />
                     </div>
 
                     {/* Proveedor */}
-                    <p className={`text-xs w-24 truncate hidden md:block ${tk.sub}`}>
+                    <p className={`text-xs w-24 truncate ${tk.sub}`}>
                       {mat.suppliers?.name || '—'}
                     </p>
 
@@ -704,7 +798,8 @@ export default function InventoryPage() {
             </AnimatePresence>
           </div>
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {/* ── Modales ── */}
